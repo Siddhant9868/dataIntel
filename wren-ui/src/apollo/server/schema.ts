@@ -140,6 +140,27 @@ export const typeDefs = gql`
     sampleDataset: SampleDatasetName
   }
 
+  type DatasetInfo {
+    id: String!
+    friendlyName: String
+    description: String
+    location: String
+    creationTime: String
+    lastModifiedTime: String
+  }
+
+  type DatasetDiscoveryError {
+    code: String!
+    message: String!
+    requiresManualInput: Boolean!
+  }
+
+  type DatasetDiscoveryResult {
+    success: Boolean!
+    datasets: [DatasetInfo!]
+    error: DatasetDiscoveryError
+  }
+
   input WhereIdInput {
     id: Int!
   }
@@ -1158,6 +1179,14 @@ export const typeDefs = gql`
       filter: ApiHistoryFilterInput
       pagination: ApiHistoryPaginationInput!
     ): ApiHistoryPaginatedResponse!
+
+    # Dataset Discovery (BigQuery)
+    discoverDatasets(projectId: Int!): DatasetDiscoveryResult!
+    listTablesFromDatasets(
+      projectId: Int!
+      datasetIds: [String!]!
+    ): [CompactTable!]!
+    validateDatasetAccess(projectId: Int!, datasetId: String!): Boolean!
   }
 
   type Mutation {
