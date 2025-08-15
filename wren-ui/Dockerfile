@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 WORKDIR /app
 
@@ -35,6 +35,12 @@ COPY .eslintignore ./
 COPY .prettierrc ./
 COPY next.config.js ./
 COPY tsconfig.json ./
+COPY codegen.yaml ./
+COPY knexfile.js ./
+COPY migrations ./migrations
+
+# Set memory limit for build process
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 
 RUN yarn build
 
@@ -70,8 +76,8 @@ COPY --from=builder /app/node_modules/.yarn-state.yml ./node_modules/.yarn-state
 
 EXPOSE 3000
 
-ENV PORT 3000
+ENV PORT=3000
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
-CMD yarn knex migrate:latest && HOSTNAME="0.0.0.0" node server.js
+CMD ["sh", "-c", "yarn knex migrate:latest && HOSTNAME=0.0.0.0 node server.js"]

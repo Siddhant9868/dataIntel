@@ -12,7 +12,7 @@ const resolveAlias = {
 /** @type {import('next').NextConfig} */
 const nextConfig = withLess({
   output: 'standalone',
-  staticPageGenerationTimeout: 1000,
+  staticPageGenerationTimeout: 1800, // Increased from 1000 to 1800 seconds (30 minutes)
   compiler: {
     // Enables the styled-components SWC transform
     styledComponents: {

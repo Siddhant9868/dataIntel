@@ -31,6 +31,7 @@ import {
   IDashboardService,
   IInstructionService,
 } from '@server/services';
+import { IDataSourceMetadataService } from '@server/services/metadataService';
 import { ITelemetry } from '@server/telemetry/telemetry';
 import {
   ProjectRecommendQuestionBackgroundTracker,
@@ -59,6 +60,7 @@ export interface IContext {
   dashboardService: IDashboardService;
   sqlPairService: ISqlPairService;
   instructionService: IInstructionService;
+  metadataService: IDataSourceMetadataService;
 
   // repository
   projectRepository: IProjectRepository;

@@ -75,6 +75,11 @@ const resolvers = {
 
     // API History
     apiHistory: apiHistoryResolver.getApiHistory,
+
+    // Dataset Discovery (BigQuery)
+    discoverDatasets: projectResolver.discoverDatasets,
+    listTablesFromDatasets: projectResolver.listTablesFromDatasets,
+    validateDatasetAccess: projectResolver.validateDatasetAccess,
   },
   Mutation: {
     deploy: modelResolver.deploy,

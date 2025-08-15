@@ -110,9 +110,12 @@ const dataSource = {
       ).toString('base64');
       const res: IbisBigQueryConnectionInfo = {
         project_id: projectId,
-        dataset_id: datasetId,
         credentials: base64Credentials,
       };
+      // Only include dataset_id if it's provided (for backward compatibility)
+      if (datasetId) {
+        res.dataset_id = datasetId;
+      }
       return res;
     },
   } as IDataSourceConnectionInfo<

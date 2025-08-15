@@ -13,7 +13,7 @@ import { IbisRedshiftConnectionType } from '@server/adaptors/ibisAdaptor';
 
 export interface BIG_QUERY_CONNECTION_INFO {
   projectId: string;
-  datasetId: string;
+  datasetId?: string; // Optional - will be discovered or specified later
   credentials: string;
 }
 export interface POSTGRES_CONNECTION_INFO {

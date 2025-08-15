@@ -45,7 +45,7 @@ export type IbisPostgresConnectionInfo =
 
 export interface IbisBigQueryConnectionInfo {
   project_id: string;
-  dataset_id: string;
+  dataset_id?: string; // Optional for dataset discovery
   credentials: string; // base64 encoded
 }
 

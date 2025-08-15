@@ -90,19 +90,7 @@ export default function BigQueryProperties(props: Props) {
       >
         <Input placeholder="The GCP project ID" disabled={isEditMode} />
       </Form.Item>
-      <Form.Item
-        label="Dataset ID"
-        required
-        name="datasetId"
-        rules={[
-          {
-            required: !isEditMode,
-            message: ERROR_TEXTS.CONNECTION.DATASET_ID.REQUIRED,
-          },
-        ]}
-      >
-        <Input disabled={isEditMode} />
-      </Form.Item>
+      {/* Dataset ID field removed - will be discovered automatically or specified later */}
       <Form.Item
         label="Credentials"
         required={!isEditMode}

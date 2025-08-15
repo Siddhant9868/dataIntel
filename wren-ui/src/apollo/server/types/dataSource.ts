@@ -31,7 +31,7 @@ export type DataSourceProperties = { displayName: string } & Partial<
 export interface BigQueryDataSourceProperties {
   displayName: string;
   projectId: string;
-  datasetId: string;
+  datasetId?: string; // Optional - will be discovered or specified later
   credentials: JSON;
 }
 
@@ -50,4 +50,30 @@ export interface PGDataSourceProperties {
   user: string;
   password: string;
   ssl?: boolean;
+}
+
+// Dataset discovery types for BigQuery
+export interface DatasetInfo {
+  id: string;
+  friendlyName?: string;
+  description?: string;
+  location?: string;
+  creationTime?: string;
+  lastModifiedTime?: string;
+}
+
+export interface DatasetDiscoveryResult {
+  success: boolean;
+  datasets?: DatasetInfo[];
+  error?: {
+    code: string;
+    message: string;
+    requiresManualInput: boolean;
+  };
+}
+
+export interface DatasetDiscoveryError {
+  code: string;
+  message: string;
+  requiresManualInput: boolean;
 }

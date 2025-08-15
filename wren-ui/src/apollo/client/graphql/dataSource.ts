@@ -143,3 +143,56 @@ export const RESOLVE_SCHEMA_CHANGE = gql`
     resolveSchemaChange(where: $where)
   }
 `;
+
+// Dataset discovery queries for BigQuery
+export const DISCOVER_DATASETS = gql`
+  query DiscoverDatasets($projectId: Int!) {
+    discoverDatasets(projectId: $projectId) {
+      success
+      datasets {
+        id
+        friendlyName
+        description
+        location
+        creationTime
+        lastModifiedTime
+      }
+      error {
+        code
+        message
+        requiresManualInput
+      }
+    }
+  }
+`;
+
+export const LIST_TABLES_FROM_DATASETS = gql`
+  query ListTablesFromDatasets($projectId: Int!, $datasetIds: [String!]!) {
+    listTablesFromDatasets(projectId: $projectId, datasetIds: $datasetIds) {
+      name
+      columns {
+        name
+        type
+        notNull
+        description
+        nestedColumns {
+          name
+          type
+          notNull
+          description
+        }
+      }
+      description
+      properties
+    }
+  }
+`;
+
+export const VALIDATE_DATASET_ACCESS = gql`
+  query ValidateDatasetAccess($projectId: Int!, $datasetIds: [String!]!) {
+    validateDatasetAccess(projectId: $projectId, datasetIds: $datasetIds) {
+      accessible
+      inaccessible
+    }
+  }
+`;

@@ -794,4 +794,74 @@ export class ProjectResolver {
     };
     await ctx.wrenEngineAdaptor.patchConfig(config);
   }
+
+  // Dataset discovery methods for BigQuery
+  public discoverDatasets = async (
+    _root: any,
+    args: { projectId: number },
+    ctx: IContext,
+  ) => {
+    logger.info(`Discovering datasets for project: ${args.projectId}`);
+    
+    try {
+      const project = await ctx.projectRepository.findOneBy({ id: args.projectId });
+      if (!project) {
+        throw new Error(`Project with id ${args.projectId} not found`);
+      }
+
+      const result = await ctx.metadataService.discoverDatasets(project);
+      logger.info(`Dataset discovery completed: ${result.success ? 'success' : 'failed'}`);
+      
+      return result;
+    } catch (error) {
+      logger.error(`Dataset discovery failed: ${error.message}`);
+      throw error;
+    }
+  };
+
+  public listTablesFromDatasets = async (
+    _root: any,
+    args: { projectId: number; datasetIds: string[] },
+    ctx: IContext,
+  ) => {
+    logger.info(`Listing tables from ${args.datasetIds.length} datasets for project: ${args.projectId}`);
+    
+    try {
+      const project = await ctx.projectRepository.findOneBy({ id: args.projectId });
+      if (!project) {
+        throw new Error(`Project with id ${args.projectId} not found`);
+      }
+
+      const tables = await ctx.metadataService.listTablesFromDatasets(project, args.datasetIds);
+      logger.info(`Retrieved ${tables.length} tables from ${args.datasetIds.length} datasets`);
+      
+      return tables;
+    } catch (error) {
+      logger.error(`Failed to list tables from datasets: ${error.message}`);
+      throw error;
+    }
+  };
+
+  public validateDatasetAccess = async (
+    _root: any,
+    args: { projectId: number; datasetIds: string[] },
+    ctx: IContext,
+  ) => {
+    logger.info(`Validating access to ${args.datasetIds.length} datasets for project: ${args.projectId}`);
+    
+    try {
+      const project = await ctx.projectRepository.findOneBy({ id: args.projectId });
+      if (!project) {
+        throw new Error(`Project with id ${args.projectId} not found`);
+      }
+
+      const result = await ctx.metadataService.validateDatasetAccess(project, args.datasetIds);
+      logger.info(`Dataset access validation complete: ${result.accessible.length} accessible, ${result.inaccessible.length} inaccessible`);
+      
+      return result;
+    } catch (error) {
+      logger.error(`Dataset access validation failed: ${error.message}`);
+      throw error;
+    }
+  };
 }
