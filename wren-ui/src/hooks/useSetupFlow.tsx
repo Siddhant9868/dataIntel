@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
 import { useLazyQuery } from '@apollo/client';
-import { 
+import {
   DISCOVER_DATASETS,
   LIST_TABLES_FROM_DATASETS,
-  VALIDATE_DATASET_ACCESS 
+  VALIDATE_DATASET_ACCESS,
 } from '@/apollo/client/graphql/dataSource';
 
 interface DatasetInfo {
@@ -42,13 +42,13 @@ export function useSetupFlow() {
       onCompleted: (data) => {
         const result = data.discoverDatasets;
         if (result.success) {
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             datasets: result.datasets || [],
             datasetError: null,
           }));
         } else {
-          setState(prev => ({
+          setState((prev) => ({
             ...prev,
             datasets: [],
             datasetError: result.error,
@@ -56,7 +56,7 @@ export function useSetupFlow() {
         }
       },
       onError: (error) => {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           datasets: [],
           datasetError: {
@@ -66,90 +66,94 @@ export function useSetupFlow() {
           },
         }));
       },
-    }
+    },
   );
 
   const [fetchTablesFromDatasets, { loading: fetchingTables }] = useLazyQuery(
     LIST_TABLES_FROM_DATASETS,
     {
       onCompleted: (data) => {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           tables: data.listTablesFromDatasets || [],
         }));
       },
       onError: (error) => {
         console.error('Failed to fetch tables from datasets:', error);
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
           tables: [],
         }));
       },
-    }
+    },
   );
 
   const [validateAccess] = useLazyQuery(VALIDATE_DATASET_ACCESS);
 
-  const handleConnectionCreated = useCallback(async (projectId: number) => {
-    setState(prev => ({ ...prev, loading: true }));
-    
-    try {
-      // Attempt dataset discovery for BigQuery connections
-      await discoverDatasets({
-        variables: { projectId },
-      });
-    } catch (error) {
-      console.error('Dataset discovery failed:', error);
-    } finally {
-      setState(prev => ({ ...prev, loading: false }));
-    }
-  }, [discoverDatasets]);
+  const handleConnectionCreated = useCallback(
+    async (projectId: number) => {
+      setState((prev) => ({ ...prev, loading: true }));
 
-  const handleDatasetSelection = useCallback(async (
-    projectId: number,
-    datasetIds: string[]
-  ) => {
-    setState(prev => ({ 
-      ...prev, 
-      selectedDatasets: datasetIds,
-      loading: true 
-    }));
-
-    try {
-      // Validate dataset access
-      const accessResult = await validateAccess({
-        variables: { projectId, datasetIds },
-      });
-
-      const { accessible, inaccessible } = accessResult.data?.validateDatasetAccess || {};
-      
-      if (inaccessible?.length > 0) {
-        console.warn(`No access to datasets: ${inaccessible.join(', ')}`);
-      }
-
-      // Fetch tables from accessible datasets
-      if (accessible?.length > 0) {
-        await fetchTablesFromDatasets({
-          variables: { 
-            projectId, 
-            datasetIds: accessible 
-          },
+      try {
+        // Attempt dataset discovery for BigQuery connections
+        await discoverDatasets({
+          variables: { projectId },
         });
+      } catch (error) {
+        console.error('Dataset discovery failed:', error);
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
       }
-    } catch (error) {
-      console.error('Failed to fetch tables from datasets:', error);
-    } finally {
-      setState(prev => ({ ...prev, loading: false }));
-    }
-  }, [validateAccess, fetchTablesFromDatasets]);
+    },
+    [discoverDatasets],
+  );
 
-  const handleManualDatasetInput = useCallback(async (
-    projectId: number,
-    datasetIds: string[]
-  ) => {
-    // Same logic as handleDatasetSelection but for manually entered datasets
-    await handleDatasetSelection(projectId, datasetIds);
-  }, [handleDatasetSelection]);
+  const handleDatasetSelection = useCallback(
+    async (projectId: number, datasetIds: string[]) => {
+      setState((prev) => ({
+        ...prev,
+        selectedDatasets: datasetIds,
+        loading: true,
+      }));
+
+      try {
+        // Validate dataset access
+        const accessResult = await validateAccess({
+          variables: { projectId, datasetIds },
+        });
+
+        const { accessible, inaccessible } =
+          accessResult.data?.validateDatasetAccess || {};
+
+        if (inaccessible?.length > 0) {
+          console.warn(`No access to datasets: ${inaccessible.join(', ')}`);
+        }
+
+        // Fetch tables from accessible datasets
+        if (accessible?.length > 0) {
+          await fetchTablesFromDatasets({
+            variables: {
+              projectId,
+              datasetIds: accessible,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch tables from datasets:', error);
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [validateAccess, fetchTablesFromDatasets],
+  );
+
+  const handleManualDatasetInput = useCallback(
+    async (projectId: number, datasetIds: string[]) => {
+      // Same logic as handleDatasetSelection but for manually entered datasets
+      await handleDatasetSelection(projectId, datasetIds);
+    },
+    [handleDatasetSelection],
+  );
 
   const resetState = useCallback(() => {
     setState({
@@ -180,4 +184,4 @@ export function useSetupFlow() {
     hasDatasetError: !!state.datasetError,
     requiresManualInput: state.datasetError?.requiresManualInput || false,
   };
-} 
+}

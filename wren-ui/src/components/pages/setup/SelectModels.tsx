@@ -1,6 +1,16 @@
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { Button, Col, Form, Row, Typography, Alert, Input, Spin, Collapse } from 'antd';
+import { useState } from 'react';
+import {
+  Button,
+  Col,
+  Form,
+  Row,
+  Typography,
+  Alert,
+  Input,
+  Spin,
+  Collapse,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ERROR_TEXTS } from '@/utils/error';
 import MultiSelectBox from '@/components/table/MultiSelectBox';
@@ -27,7 +37,7 @@ interface Props {
   tables: CompactTable[];
   datasets?: DatasetInfo[];
   datasetDiscoveryError?: DatasetDiscoveryError;
-  onNext: (data: { 
+  onNext: (data: {
     selectedTables: string[];
     selectedDatasets?: string[];
     manualDatasets?: string[];
@@ -45,17 +55,17 @@ const columns: ColumnsType<CompactTable> = [
 ];
 
 export default function SelectModels(props: Props) {
-  const { 
-    fetching, 
-    tables, 
-    datasets, 
+  const {
+    fetching,
+    tables,
+    datasets,
     datasetDiscoveryError,
-    onBack, 
-    onNext, 
+    onBack,
+    onNext,
     onDatasetChange,
-    submitting 
+    submitting,
   } = props;
-  
+
   const [form] = Form.useForm();
   const [manualDatasets, setManualDatasets] = useState<string[]>([]);
   const [selectedDatasets, setSelectedDatasets] = useState<string[]>([]);
@@ -69,8 +79,8 @@ export default function SelectModels(props: Props) {
   const renderDatasetSelection = () => {
     if (!datasets?.length) return null;
 
-    const datasetItems = datasets.map(ds => ({ 
-      ...ds, 
+    const datasetItems = datasets.map((ds) => ({
+      ...ds,
       value: ds.id,
       name: ds.friendlyName || ds.id,
     }));
@@ -79,10 +89,12 @@ export default function SelectModels(props: Props) {
       <Form.Item
         name="datasets"
         label="Select Datasets"
-        rules={[{
-          required: true,
-          message: 'Please select at least one dataset',
-        }]}
+        rules={[
+          {
+            required: true,
+            message: 'Please select at least one dataset',
+          },
+        ]}
       >
         <MultiSelectBox
           columns={[
@@ -109,7 +121,10 @@ export default function SelectModels(props: Props) {
       <div className="mb-6">
         <Alert
           message="Dataset Discovery Failed"
-          description={datasetDiscoveryError.message + ". Please specify dataset IDs manually."}
+          description={
+            datasetDiscoveryError.message +
+            '. Please specify dataset IDs manually.'
+          }
           type="warning"
           showIcon
           className="mb-4"
@@ -117,10 +132,12 @@ export default function SelectModels(props: Props) {
         <Form.Item
           name="manualDatasets"
           label="Dataset IDs"
-          rules={[{
-            required: true,
-            message: 'Please enter at least one dataset ID',
-          }]}
+          rules={[
+            {
+              required: true,
+              message: 'Please enter at least one dataset ID',
+            },
+          ]}
           help="Enter dataset IDs separated by commas (e.g., dataset1, dataset2)"
         >
           <Input.TextArea
@@ -128,7 +145,7 @@ export default function SelectModels(props: Props) {
             onChange={(e) => {
               const datasets = e.target.value
                 .split(',')
-                .map(ds => ds.trim())
+                .map((ds) => ds.trim())
                 .filter(Boolean);
               setManualDatasets(datasets);
               onDatasetChange && onDatasetChange(datasets);
@@ -145,12 +162,15 @@ export default function SelectModels(props: Props) {
       return fetching ? <Spin /> : <div>No tables available</div>;
     }
 
-    const tablesByDataset = tables.reduce((acc, table) => {
-      const dataset = extractDatasetFromTable(table);
-      if (!acc[dataset]) acc[dataset] = [];
-      acc[dataset].push(table);
-      return acc;
-    }, {} as Record<string, CompactTable[]>);
+    const tablesByDataset = tables.reduce(
+      (acc, table) => {
+        const dataset = extractDatasetFromTable(table);
+        if (!acc[dataset]) acc[dataset] = [];
+        acc[dataset].push(table);
+        return acc;
+      },
+      {} as Record<string, CompactTable[]>,
+    );
 
     const tableItems = tables.map((item) => ({
       ...item,
@@ -166,44 +186,52 @@ export default function SelectModels(props: Props) {
               key={dataset}
               header={`${dataset} (${datasetTables.length} tables)`}
             >
-                             <MultiSelectBox
-                 columns={columns}
-                 items={datasetTables.map(table => ({ ...table, value: table.name }))}
-                 loading={false}
-               />
+              <MultiSelectBox
+                columns={columns}
+                items={datasetTables.map((table) => ({
+                  ...table,
+                  value: table.name,
+                }))}
+                loading={false}
+              />
             </Panel>
           ))}
         </Collapse>
       );
-    } else {
-      // Single dataset or no dataset grouping, show flat list
-      return (
-        <MultiSelectBox
-          columns={columns}
-          items={tableItems}
-          loading={fetching}
-        />
-      );
     }
+
+    // Single dataset or no dataset grouping, show flat list
+    return (
+      <MultiSelectBox columns={columns} items={tableItems} loading={fetching} />
+    );
   };
 
   const submit = () => {
-    form.validateFields().then((values) => {
-      onNext && onNext({
-        selectedTables: values.tables,
-        selectedDatasets: selectedDatasets.length > 0 ? selectedDatasets : undefined,
-        manualDatasets: manualDatasets.length > 0 ? manualDatasets : undefined,
+    form
+      .validateFields()
+      .then((values) => {
+        onNext &&
+          onNext({
+            selectedTables: values.tables,
+            selectedDatasets:
+              selectedDatasets.length > 0 ? selectedDatasets : undefined,
+            manualDatasets:
+              manualDatasets.length > 0 ? manualDatasets : undefined,
+          });
+      })
+      .catch((error) => {
+        console.error(error);
       });
-    }).catch((error) => {
-      console.error(error);
-    });
   };
 
-  const hasDatasets = datasets?.length || datasetDiscoveryError?.requiresManualInput;
-  const pageTitle = hasDatasets ? "Select Datasets and Tables" : "Select tables to create data models";
-  const pageDescription = hasDatasets 
+  const hasDatasets =
+    datasets?.length || datasetDiscoveryError?.requiresManualInput;
+  const pageTitle = hasDatasets
+    ? 'Select Datasets and Tables'
+    : 'Select tables to create data models';
+  const pageDescription = hasDatasets
     ? "Select datasets and tables to create data models. We'll help AI better understand your data structure."
-    : "We will create data models based on selected tables to help AI better understand your data.";
+    : 'We will create data models based on selected tables to help AI better understand your data.';
 
   return (
     <div>
@@ -233,10 +261,12 @@ export default function SelectModels(props: Props) {
           <Form.Item
             name="tables"
             label="Select Tables"
-            rules={[{
-              required: true,
-              message: ERROR_TEXTS.SETUP_MODEL.TABLE.REQUIRED,
-            }]}
+            rules={[
+              {
+                required: true,
+                message: ERROR_TEXTS.SETUP_MODEL.TABLE.REQUIRED,
+              },
+            ]}
           >
             {renderTablesByDataset()}
           </Form.Item>

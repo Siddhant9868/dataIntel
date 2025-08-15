@@ -53,6 +53,7 @@ const bootstrapServer = async () => {
     wrenAIAdaptor,
 
     // services
+    metadataService,
     projectService,
     queryService,
     askingService,
@@ -142,6 +143,7 @@ const bootstrapServer = async () => {
       dashboardService,
       sqlPairService,
       instructionService,
+      metadataService,
       // repository
       projectRepository,
       modelRepository,

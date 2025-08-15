@@ -802,16 +802,20 @@ export class ProjectResolver {
     ctx: IContext,
   ) => {
     logger.info(`Discovering datasets for project: ${args.projectId}`);
-    
+
     try {
-      const project = await ctx.projectRepository.findOneBy({ id: args.projectId });
+      const project = await ctx.projectRepository.findOneBy({
+        id: args.projectId,
+      });
       if (!project) {
         throw new Error(`Project with id ${args.projectId} not found`);
       }
 
       const result = await ctx.metadataService.discoverDatasets(project);
-      logger.info(`Dataset discovery completed: ${result.success ? 'success' : 'failed'}`);
-      
+      logger.info(
+        `Dataset discovery completed: ${result.success ? 'success' : 'failed'}`,
+      );
+
       return result;
     } catch (error) {
       logger.error(`Dataset discovery failed: ${error.message}`);
@@ -824,17 +828,26 @@ export class ProjectResolver {
     args: { projectId: number; datasetIds: string[] },
     ctx: IContext,
   ) => {
-    logger.info(`Listing tables from ${args.datasetIds.length} datasets for project: ${args.projectId}`);
-    
+    logger.info(
+      `Listing tables from ${args.datasetIds.length} datasets for project: ${args.projectId}`,
+    );
+
     try {
-      const project = await ctx.projectRepository.findOneBy({ id: args.projectId });
+      const project = await ctx.projectRepository.findOneBy({
+        id: args.projectId,
+      });
       if (!project) {
-        throw new Error(`Project with id ${args.projectId} not found`);
+        throw new Error(`Project with id ${args.projectId} not be found`);
       }
 
-      const tables = await ctx.metadataService.listTablesFromDatasets(project, args.datasetIds);
-      logger.info(`Retrieved ${tables.length} tables from ${args.datasetIds.length} datasets`);
-      
+      const tables = await ctx.metadataService.listTablesFromDatasets(
+        project,
+        args.datasetIds,
+      );
+      logger.info(
+        `Retrieved ${tables.length} tables from ${args.datasetIds.length} datasets`,
+      );
+
       return tables;
     } catch (error) {
       logger.error(`Failed to list tables from datasets: ${error.message}`);
@@ -847,17 +860,26 @@ export class ProjectResolver {
     args: { projectId: number; datasetIds: string[] },
     ctx: IContext,
   ) => {
-    logger.info(`Validating access to ${args.datasetIds.length} datasets for project: ${args.projectId}`);
-    
+    logger.info(
+      `Validating access to ${args.datasetIds.length} datasets for project: ${args.projectId}`,
+    );
+
     try {
-      const project = await ctx.projectRepository.findOneBy({ id: args.projectId });
+      const project = await ctx.projectRepository.findOneBy({
+        id: args.projectId,
+      });
       if (!project) {
         throw new Error(`Project with id ${args.projectId} not found`);
       }
 
-      const result = await ctx.metadataService.validateDatasetAccess(project, args.datasetIds);
-      logger.info(`Dataset access validation complete: ${result.accessible.length} accessible, ${result.inaccessible.length} inaccessible`);
-      
+      const result = await ctx.metadataService.validateDatasetAccess(
+        project,
+        args.datasetIds,
+      );
+      logger.info(
+        `Dataset access validation complete: ${result.accessible.length} accessible, ${result.inaccessible.length} inaccessible`,
+      );
+
       return result;
     } catch (error) {
       logger.error(`Dataset access validation failed: ${error.message}`);

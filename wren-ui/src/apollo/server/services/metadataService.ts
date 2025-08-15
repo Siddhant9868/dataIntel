@@ -9,7 +9,10 @@ import { IWrenEngineAdaptor } from '../adaptors/wrenEngineAdaptor';
 import { Project, BIG_QUERY_CONNECTION_INFO } from '../repositories';
 import { DataSourceName, DatasetDiscoveryResult } from '../types';
 import { getLogger } from '@server/utils';
-import { BigQueryDatasetService, IbigQueryDatasetService } from './bigqueryDatasetService';
+import {
+  BigQueryDatasetService,
+  IbigQueryDatasetService,
+} from './bigqueryDatasetService';
 
 const logger = getLogger('MetadataService');
 logger.level = 'debug';
@@ -50,11 +53,17 @@ export interface IDataSourceMetadataService {
   listTables(project: Project): Promise<CompactTable[]>;
   listConstraints(project: Project): Promise<RecommendConstraint[]>;
   getVersion(project: Project): Promise<string>;
-  
+
   // New methods for dataset discovery
   discoverDatasets(project: Project): Promise<DatasetDiscoveryResult>;
-  listTablesFromDatasets(project: Project, datasetIds: string[]): Promise<CompactTable[]>;
-  validateDatasetAccess(project: Project, datasetIds: string[]): Promise<{ accessible: string[]; inaccessible: string[] }>;
+  listTablesFromDatasets(
+    project: Project,
+    datasetIds: string[],
+  ): Promise<CompactTable[]>;
+  validateDatasetAccess(
+    project: Project,
+    datasetIds: string[],
+  ): Promise<{ accessible: string[]; inaccessible: string[] }>;
 }
 
 export class DataSourceMetadataService implements IDataSourceMetadataService {
@@ -73,7 +82,8 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
   }) {
     this.ibisAdaptor = ibisAdaptor;
     this.wrenEngineAdaptor = wrenEngineAdaptor;
-    this.bigQueryDatasetService = bigQueryDatasetService || new BigQueryDatasetService();
+    this.bigQueryDatasetService =
+      bigQueryDatasetService || new BigQueryDatasetService();
   }
 
   public async listTables(project): Promise<CompactTable[]> {
@@ -100,23 +110,29 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
     return await this.ibisAdaptor.getVersion(dataSource, connectionInfo);
   }
 
-  public async discoverDatasets(project: Project): Promise<DatasetDiscoveryResult> {
+  public async discoverDatasets(
+    project: Project,
+  ): Promise<DatasetDiscoveryResult> {
     const { type: dataSource, connectionInfo } = project;
-    
+
     if (dataSource !== DataSourceName.BIG_QUERY) {
       throw new Error('Dataset discovery is only supported for BigQuery');
     }
 
-    const { projectId, credentials } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
-    return await this.bigQueryDatasetService.discoverDatasets(projectId, credentials);
+    const { projectId, credentials } =
+      connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    return await this.bigQueryDatasetService.discoverDatasets(
+      projectId,
+      credentials,
+    );
   }
 
   public async listTablesFromDatasets(
-    project: Project, 
-    datasetIds: string[]
+    project: Project,
+    datasetIds: string[],
   ): Promise<CompactTable[]> {
     const { type: dataSource, connectionInfo } = project;
-    
+
     if (dataSource !== DataSourceName.BIG_QUERY) {
       // For non-BigQuery, fall back to existing behavior
       return await this.listTables(project);
@@ -131,11 +147,14 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
           ...connectionInfo,
           datasetId,
         };
-        
+
         try {
-          const tables = await this.ibisAdaptor.getTables(dataSource, datasetConnectionInfo);
+          const tables = await this.ibisAdaptor.getTables(
+            dataSource,
+            datasetConnectionInfo,
+          );
           // Add dataset info to table metadata for better organization
-          return tables.map(table => ({
+          return tables.map((table) => ({
             ...table,
             properties: {
               ...table.properties,
@@ -143,34 +162,39 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
             },
           }));
         } catch (error) {
-          logger.warn(`Failed to fetch tables from dataset ${datasetId}: ${error.message}`);
+          logger.warn(
+            `Failed to fetch tables from dataset ${datasetId}: ${error.message}`,
+          );
           return [];
         }
-      })
+      }),
     );
 
     const allTables = tableResults.flat();
-    logger.debug(`Retrieved ${allTables.length} total tables from ${datasetIds.length} datasets`);
-    
+    logger.debug(
+      `Retrieved ${allTables.length} total tables from ${datasetIds.length} datasets`,
+    );
+
     return allTables;
   }
 
   public async validateDatasetAccess(
-    project: Project, 
-    datasetIds: string[]
+    project: Project,
+    datasetIds: string[],
   ): Promise<{ accessible: string[]; inaccessible: string[] }> {
     const { type: dataSource, connectionInfo } = project;
-    
+
     if (dataSource !== DataSourceName.BIG_QUERY) {
       // For non-BigQuery, assume all datasets are accessible
       return { accessible: datasetIds, inaccessible: [] };
     }
 
-    const { projectId, credentials } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    const { projectId, credentials } =
+      connectionInfo as BIG_QUERY_CONNECTION_INFO;
     return await this.bigQueryDatasetService.validateMultipleDatasetAccess(
-      projectId, 
-      datasetIds, 
-      credentials
+      projectId,
+      datasetIds,
+      credentials,
     );
   }
 }
