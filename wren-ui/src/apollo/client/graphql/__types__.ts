@@ -339,6 +339,30 @@ export enum DataSourceName {
   TRINO = 'TRINO'
 }
 
+export type DatasetDiscoveryError = {
+  __typename?: 'DatasetDiscoveryError';
+  code: Scalars['String'];
+  message: Scalars['String'];
+  requiresManualInput: Scalars['Boolean'];
+};
+
+export type DatasetDiscoveryResult = {
+  __typename?: 'DatasetDiscoveryResult';
+  datasets?: Maybe<Array<DatasetInfo>>;
+  error?: Maybe<DatasetDiscoveryError>;
+  success: Scalars['Boolean'];
+};
+
+export type DatasetInfo = {
+  __typename?: 'DatasetInfo';
+  creationTime?: Maybe<Scalars['String']>;
+  description?: Maybe<Scalars['String']>;
+  friendlyName?: Maybe<Scalars['String']>;
+  id: Scalars['String'];
+  lastModifiedTime?: Maybe<Scalars['String']>;
+  location?: Maybe<Scalars['String']>;
+};
+
 export type DeleteDashboardItemInput = {
   itemId: Scalars['Int'];
 };
@@ -1077,6 +1101,7 @@ export enum OnboardingStatus {
 
 export type OnboardingStatusResponse = {
   __typename?: 'OnboardingStatusResponse';
+  projectId?: Maybe<Scalars['Int']>;
   status?: Maybe<OnboardingStatus>;
 };
 
@@ -1139,6 +1164,7 @@ export type Query = {
   dashboard: DetailedDashboard;
   dashboardItems: Array<DashboardItem>;
   diagram: Diagram;
+  discoverDatasets: DatasetDiscoveryResult;
   getMDL: GetMdlResult;
   getProjectRecommendationQuestions: RecommendedQuestionsTask;
   getThreadRecommendationQuestions: RecommendedQuestionsTask;
@@ -1147,6 +1173,7 @@ export type Query = {
   learningRecord: LearningRecord;
   listDataSourceTables: Array<CompactTable>;
   listModels: Array<ModelInfo>;
+  listTablesFromDatasets: Array<CompactTable>;
   listViews: Array<ViewInfo>;
   model: DetailedModel;
   modelSync: ModelSyncResponse;
@@ -1159,6 +1186,7 @@ export type Query = {
   thread: DetailedThread;
   threadResponse: ThreadResponse;
   threads: Array<Thread>;
+  validateDatasetAccess: Scalars['Boolean'];
   view: ViewInfo;
 };
 
@@ -1179,6 +1207,11 @@ export type QueryAskingTaskArgs = {
 };
 
 
+export type QueryDiscoverDatasetsArgs = {
+  projectId: Scalars['Int'];
+};
+
+
 export type QueryGetMdlArgs = {
   hash: Scalars['String'];
 };
@@ -1191,6 +1224,12 @@ export type QueryGetThreadRecommendationQuestionsArgs = {
 
 export type QueryInstantRecommendedQuestionsArgs = {
   taskId: Scalars['String'];
+};
+
+
+export type QueryListTablesFromDatasetsArgs = {
+  datasetIds: Array<Scalars['String']>;
+  projectId: Scalars['Int'];
 };
 
 
@@ -1211,6 +1250,12 @@ export type QueryThreadArgs = {
 
 export type QueryThreadResponseArgs = {
   responseId: Scalars['Int'];
+};
+
+
+export type QueryValidateDatasetAccessArgs = {
+  datasetId: Scalars['String'];
+  projectId: Scalars['Int'];
 };
 
 
@@ -1318,6 +1363,8 @@ export type SaveRelationInput = {
 };
 
 export type SaveTablesInput = {
+  manualDatasets?: InputMaybe<Array<Scalars['String']>>;
+  selectedDatasets?: InputMaybe<Array<Scalars['String']>>;
   tables: Array<Scalars['String']>;
 };
 

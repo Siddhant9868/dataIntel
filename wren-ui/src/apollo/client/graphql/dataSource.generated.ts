@@ -65,6 +65,29 @@ export type ResolveSchemaChangeMutationVariables = Types.Exact<{
 
 export type ResolveSchemaChangeMutation = { __typename?: 'Mutation', resolveSchemaChange: boolean };
 
+export type DiscoverDatasetsQueryVariables = Types.Exact<{
+  projectId: Types.Scalars['Int'];
+}>;
+
+
+export type DiscoverDatasetsQuery = { __typename?: 'Query', discoverDatasets: { __typename?: 'DatasetDiscoveryResult', success: boolean, datasets?: Array<{ __typename?: 'DatasetInfo', id: string, friendlyName?: string | null, description?: string | null, location?: string | null, creationTime?: string | null, lastModifiedTime?: string | null }> | null, error?: { __typename?: 'DatasetDiscoveryError', code: string, message: string, requiresManualInput: boolean } | null } };
+
+export type ListTablesFromDatasetsQueryVariables = Types.Exact<{
+  projectId: Types.Scalars['Int'];
+  datasetIds: Array<Types.Scalars['String']> | Types.Scalars['String'];
+}>;
+
+
+export type ListTablesFromDatasetsQuery = { __typename?: 'Query', listTablesFromDatasets: Array<{ __typename?: 'CompactTable', name: string, properties?: any | null, columns: Array<{ __typename?: 'CompactColumn', name: string, type: string, properties?: any | null }> }> };
+
+export type ValidateDatasetAccessQueryVariables = Types.Exact<{
+  projectId: Types.Scalars['Int'];
+  datasetIds: Array<Types.Scalars['String']> | Types.Scalars['String'];
+}>;
+
+
+export type ValidateDatasetAccessQuery = { __typename?: 'Query', validateDatasetAccess: never };
+
 
 export const StartSampleDatasetDocument = gql`
     mutation StartSampleDataset($data: SampleDatasetInput!) {
@@ -462,3 +485,130 @@ export function useResolveSchemaChangeMutation(baseOptions?: Apollo.MutationHook
 export type ResolveSchemaChangeMutationHookResult = ReturnType<typeof useResolveSchemaChangeMutation>;
 export type ResolveSchemaChangeMutationResult = Apollo.MutationResult<ResolveSchemaChangeMutation>;
 export type ResolveSchemaChangeMutationOptions = Apollo.BaseMutationOptions<ResolveSchemaChangeMutation, ResolveSchemaChangeMutationVariables>;
+export const DiscoverDatasetsDocument = gql`
+    query DiscoverDatasets($projectId: Int!) {
+  discoverDatasets(projectId: $projectId) {
+    success
+    datasets {
+      id
+      friendlyName
+      description
+      location
+      creationTime
+      lastModifiedTime
+    }
+    error {
+      code
+      message
+      requiresManualInput
+    }
+  }
+}
+    `;
+
+/**
+ * __useDiscoverDatasetsQuery__
+ *
+ * To run a query within a React component, call `useDiscoverDatasetsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useDiscoverDatasetsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useDiscoverDatasetsQuery({
+ *   variables: {
+ *      projectId: // value for 'projectId'
+ *   },
+ * });
+ */
+export function useDiscoverDatasetsQuery(baseOptions: Apollo.QueryHookOptions<DiscoverDatasetsQuery, DiscoverDatasetsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return Apollo.useQuery<DiscoverDatasetsQuery, DiscoverDatasetsQueryVariables>(DiscoverDatasetsDocument, options);
+      }
+export function useDiscoverDatasetsLazyQuery(baseOptions?: Apollo.LazyQueryHookOptions<DiscoverDatasetsQuery, DiscoverDatasetsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return Apollo.useLazyQuery<DiscoverDatasetsQuery, DiscoverDatasetsQueryVariables>(DiscoverDatasetsDocument, options);
+        }
+export type DiscoverDatasetsQueryHookResult = ReturnType<typeof useDiscoverDatasetsQuery>;
+export type DiscoverDatasetsLazyQueryHookResult = ReturnType<typeof useDiscoverDatasetsLazyQuery>;
+export type DiscoverDatasetsQueryResult = Apollo.QueryResult<DiscoverDatasetsQuery, DiscoverDatasetsQueryVariables>;
+export const ListTablesFromDatasetsDocument = gql`
+    query ListTablesFromDatasets($projectId: Int!, $datasetIds: [String!]!) {
+  listTablesFromDatasets(projectId: $projectId, datasetIds: $datasetIds) {
+    name
+    columns {
+      name
+      type
+      properties
+    }
+    properties
+  }
+}
+    `;
+
+/**
+ * __useListTablesFromDatasetsQuery__
+ *
+ * To run a query within a React component, call `useListTablesFromDatasetsQuery` and pass it any options that fit your needs.
+ * When your component renders, `useListTablesFromDatasetsQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useListTablesFromDatasetsQuery({
+ *   variables: {
+ *      projectId: // value for 'projectId'
+ *      datasetIds: // value for 'datasetIds'
+ *   },
+ * });
+ */
+export function useListTablesFromDatasetsQuery(baseOptions: Apollo.QueryHookOptions<ListTablesFromDatasetsQuery, ListTablesFromDatasetsQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return Apollo.useQuery<ListTablesFromDatasetsQuery, ListTablesFromDatasetsQueryVariables>(ListTablesFromDatasetsDocument, options);
+      }
+export function useListTablesFromDatasetsLazyQuery(baseOptions?: Apollo.LazyQueryHookOptions<ListTablesFromDatasetsQuery, ListTablesFromDatasetsQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return Apollo.useLazyQuery<ListTablesFromDatasetsQuery, ListTablesFromDatasetsQueryVariables>(ListTablesFromDatasetsDocument, options);
+        }
+export type ListTablesFromDatasetsQueryHookResult = ReturnType<typeof useListTablesFromDatasetsQuery>;
+export type ListTablesFromDatasetsLazyQueryHookResult = ReturnType<typeof useListTablesFromDatasetsLazyQuery>;
+export type ListTablesFromDatasetsQueryResult = Apollo.QueryResult<ListTablesFromDatasetsQuery, ListTablesFromDatasetsQueryVariables>;
+export const ValidateDatasetAccessDocument = gql`
+    query ValidateDatasetAccess($projectId: Int!, $datasetIds: [String!]!) {
+  validateDatasetAccess(projectId: $projectId, datasetIds: $datasetIds) {
+    accessible
+    inaccessible
+  }
+}
+    `;
+
+/**
+ * __useValidateDatasetAccessQuery__
+ *
+ * To run a query within a React component, call `useValidateDatasetAccessQuery` and pass it any options that fit your needs.
+ * When your component renders, `useValidateDatasetAccessQuery` returns an object from Apollo Client that contains loading, error, and data properties
+ * you can use to render your UI.
+ *
+ * @param baseOptions options that will be passed into the query, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options;
+ *
+ * @example
+ * const { data, loading, error } = useValidateDatasetAccessQuery({
+ *   variables: {
+ *      projectId: // value for 'projectId'
+ *      datasetIds: // value for 'datasetIds'
+ *   },
+ * });
+ */
+export function useValidateDatasetAccessQuery(baseOptions: Apollo.QueryHookOptions<ValidateDatasetAccessQuery, ValidateDatasetAccessQueryVariables>) {
+        const options = {...defaultOptions, ...baseOptions}
+        return Apollo.useQuery<ValidateDatasetAccessQuery, ValidateDatasetAccessQueryVariables>(ValidateDatasetAccessDocument, options);
+      }
+export function useValidateDatasetAccessLazyQuery(baseOptions?: Apollo.LazyQueryHookOptions<ValidateDatasetAccessQuery, ValidateDatasetAccessQueryVariables>) {
+          const options = {...defaultOptions, ...baseOptions}
+          return Apollo.useLazyQuery<ValidateDatasetAccessQuery, ValidateDatasetAccessQueryVariables>(ValidateDatasetAccessDocument, options);
+        }
+export type ValidateDatasetAccessQueryHookResult = ReturnType<typeof useValidateDatasetAccessQuery>;
+export type ValidateDatasetAccessLazyQueryHookResult = ReturnType<typeof useValidateDatasetAccessLazyQuery>;
+export type ValidateDatasetAccessQueryResult = Apollo.QueryResult<ValidateDatasetAccessQuery, ValidateDatasetAccessQueryVariables>;

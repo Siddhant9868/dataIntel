@@ -25,11 +25,12 @@ export default function useSetupModelsWithDatasets() {
   });
 
   // Fallback to regular table listing if dataset flow is not active
-  const { data: fallbackData, loading: fallbackLoading } = useListDataSourceTablesQuery({
-    fetchPolicy: 'no-cache',
-    onError: (error) => console.error(error),
-    skip: setupFlow.hasDatasets || setupFlow.hasDatasetError,
-  });
+  const { data: fallbackData, loading: fallbackLoading } =
+    useListDataSourceTablesQuery({
+      fetchPolicy: 'no-cache',
+      onError: (error) => console.error(error),
+      skip: setupFlow.hasDatasets || setupFlow.hasDatasetError,
+    });
 
   const [saveTablesMutation, { loading: submitting }] = useSaveTablesMutation();
 
@@ -43,47 +44,55 @@ export default function useSetupModelsWithDatasets() {
     }
   }, [onboardingData, setupFlow]);
 
-  const submitModels = useCallback(async (data: SetupModelsNextData) => {
-    try {
-      await saveTablesMutation({
-        variables: {
-          data: {
-            tables: data.selectedTables,
-            selectedDatasets: data.selectedDatasets,
-            manualDatasets: data.manualDatasets,
+  const submitModels = useCallback(
+    async (data: SetupModelsNextData) => {
+      try {
+        await saveTablesMutation({
+          variables: {
+            data: {
+              tables: data.selectedTables,
+              selectedDatasets: data.selectedDatasets,
+              manualDatasets: data.manualDatasets,
+            },
           },
-        },
-      });
-      router.push(Path.OnboardingRelationships);
-    } catch (error) {
-      console.error('Failed to save tables:', error);
-      throw error;
-    }
-  }, [saveTablesMutation, router]);
+        });
+        router.push(Path.OnboardingRelationships);
+      } catch (error) {
+        console.error('Failed to save tables:', error);
+        throw error;
+      }
+    },
+    [saveTablesMutation, router],
+  );
 
   const onBack = useCallback(() => {
     router.push(Path.OnboardingConnection);
   }, [router]);
 
-  const onNext = useCallback((data: SetupModelsNextData) => {
-    submitModels(data);
-  }, [submitModels]);
+  const onNext = useCallback(
+    (data: SetupModelsNextData) => {
+      submitModels(data);
+    },
+    [submitModels],
+  );
 
   // Use dataset flow tables if available, otherwise fallback to regular listing
-  const tables = setupFlow.hasDatasets || setupFlow.hasDatasetError 
-    ? setupFlow.tables 
-    : (fallbackData?.listDataSourceTables || []);
+  const tables =
+    setupFlow.hasDatasets || setupFlow.hasDatasetError
+      ? setupFlow.tables
+      : fallbackData?.listDataSourceTables || [];
 
-  const fetching = setupFlow.hasDatasets || setupFlow.hasDatasetError
-    ? setupFlow.loading
-    : fallbackLoading;
+  const fetching =
+    setupFlow.hasDatasets || setupFlow.hasDatasetError
+      ? setupFlow.loading
+      : fallbackLoading;
 
   return {
     // Setup flow data
     datasets: setupFlow.datasets,
     datasetDiscoveryError: setupFlow.datasetError,
     selectedDatasets: setupFlow.selectedDatasets,
-    
+
     // Standard setup props
     stepKey: SETUP.SELECT_MODELS,
     tables,
@@ -91,12 +100,12 @@ export default function useSetupModelsWithDatasets() {
     submitting,
     onBack,
     onNext,
-    
+
     // Dataset change handlers
     onDatasetChange: setupFlow.handleDatasetSelection,
-    
+
     // State helpers
     hasDatasets: setupFlow.hasDatasets,
     requiresManualInput: setupFlow.requiresManualInput,
   };
-} 
+}

@@ -311,11 +311,15 @@ export class ProjectResolver {
         // For BigQuery, attempt dataset discovery after connection validation
         if (type === DataSourceName.BIG_QUERY) {
           try {
-            logger.debug(`Attempting dataset discovery for BigQuery project: ${project.id}`);
+            logger.debug(
+              `Attempting dataset discovery for BigQuery project: ${project.id}`,
+            );
             // Don't block connection creation if dataset discovery fails
             await ctx.metadataService.discoverDatasets(project);
           } catch (error) {
-            logger.warn(`Dataset discovery failed for project ${project.id}: ${error.message}`);
+            logger.warn(
+              `Dataset discovery failed for project ${project.id}: ${error.message}`,
+            );
             // Continue with normal flow even if dataset discovery fails
           }
         }
@@ -404,7 +408,7 @@ export class ProjectResolver {
   public async saveTables(
     _root: any,
     arg: {
-      data: { 
+      data: {
         tables: string[];
         selectedDatasets?: string[];
         manualDatasets?: string[];
@@ -429,13 +433,9 @@ export class ProjectResolver {
         ...(arg.data.selectedDatasets || []),
         ...(arg.data.manualDatasets || []),
       ];
-      
+
       if (allDatasets.length > 0) {
-        // Update project with dataset information for future reference
-        await ctx.projectService.updateProject(project.id, {
-          datasets: allDatasets,
-        });
-        logger.debug(`Stored dataset context: ${allDatasets.join(', ')}`);
+        logger.debug(`Dataset context provided: ${allDatasets.join(', ')}`);
       }
 
       // telemetry

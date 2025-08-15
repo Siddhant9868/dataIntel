@@ -55,7 +55,7 @@ export default function useSetupConnectionDataSource(
           // Continue with normal flow even if post-connection handling fails
         }
       }
-      
+
       router.push(Path.OnboardingModels);
     },
     [options, router],

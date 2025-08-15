@@ -173,16 +173,8 @@ export const LIST_TABLES_FROM_DATASETS = gql`
       columns {
         name
         type
-        notNull
-        description
-        nestedColumns {
-          name
-          type
-          notNull
-          description
-        }
+        properties
       }
-      description
       properties
     }
   }

@@ -26,7 +26,9 @@ export default function useSetupConnection() {
       if (dataSourceType === DataSourceName.BIG_QUERY) {
         // For BigQuery, the backend already attempts dataset discovery
         // The setup models page will handle fetching discovered datasets
-        console.log('BigQuery connection completed - dataset discovery handled by backend');
+        console.log(
+          'BigQuery connection completed - dataset discovery handled by backend',
+        );
       }
     },
     [setupFlow],

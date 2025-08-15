@@ -6,13 +6,14 @@ const defaultOptions = {} as const;
 export type OnboardingStatusQueryVariables = Types.Exact<{ [key: string]: never; }>;
 
 
-export type OnboardingStatusQuery = { __typename?: 'Query', onboardingStatus: { __typename?: 'OnboardingStatusResponse', status?: Types.OnboardingStatus | null } };
+export type OnboardingStatusQuery = { __typename?: 'Query', onboardingStatus: { __typename?: 'OnboardingStatusResponse', status?: Types.OnboardingStatus | null, projectId?: number | null } };
 
 
 export const OnboardingStatusDocument = gql`
     query OnboardingStatus {
   onboardingStatus {
     status
+    projectId
   }
 }
     `;
