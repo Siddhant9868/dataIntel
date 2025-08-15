@@ -298,8 +298,35 @@ export class ProjectResolver {
           extensions: connectionInfo.extensions,
           configurations: connectionInfo.configurations,
         });
+      } else if (type === DataSourceName.BIG_QUERY) {
+        // For BigQuery, validate connection via dataset discovery instead of table listing
+        // since table listing requires dataset_id which we don't have during setup
+        try {
+          logger.debug(
+            `Validating BigQuery connection via dataset discovery for project: ${project.id}`,
+          );
+          await ctx.metadataService.discoverDatasets(project);
+          logger.debug(`BigQuery connection validated successfully`);
+        } catch (error) {
+          logger.error(
+            `BigQuery connection validation failed: ${error.message}`,
+          );
+          throw new Error(`Failed to connect to BigQuery: ${error.message}`);
+        }
+
+        // Get version for BigQuery
+        try {
+          const version =
+            await ctx.projectService.getProjectDataSourceVersion(project);
+          await ctx.projectService.updateProject(project.id, {
+            version,
+          });
+        } catch (error) {
+          logger.warn(`Failed to get BigQuery version: ${error.message}`);
+          // Don't fail connection if version check fails
+        }
       } else {
-        // handle other data source
+        // handle other data source (non-BigQuery, non-DuckDB)
         await ctx.projectService.getProjectDataSourceTables(project);
         const version =
           await ctx.projectService.getProjectDataSourceVersion(project);
@@ -307,22 +334,6 @@ export class ProjectResolver {
           version,
         });
         logger.debug(`Data source tables fetched`);
-
-        // For BigQuery, attempt dataset discovery after connection validation
-        if (type === DataSourceName.BIG_QUERY) {
-          try {
-            logger.debug(
-              `Attempting dataset discovery for BigQuery project: ${project.id}`,
-            );
-            // Don't block connection creation if dataset discovery fails
-            await ctx.metadataService.discoverDatasets(project);
-          } catch (error) {
-            logger.warn(
-              `Dataset discovery failed for project ${project.id}: ${error.message}`,
-            );
-            // Continue with normal flow even if dataset discovery fails
-          }
-        }
       }
       // telemetry
       ctx.telemetry.sendEvent(eventName, eventProperties);
