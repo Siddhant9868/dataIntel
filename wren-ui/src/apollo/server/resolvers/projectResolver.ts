@@ -235,22 +235,26 @@ export class ProjectResolver {
     } catch (_err: any) {
       return {
         status: OnboardingStatusEnum.NOT_STARTED,
+        projectId: null,
       };
     }
     const { id, sampleDataset } = project;
     if (sampleDataset) {
       return {
         status: OnboardingStatusEnum.WITH_SAMPLE_DATASET,
+        projectId: id,
       };
     }
     const models = await ctx.modelRepository.findAllBy({ projectId: id });
     if (!models.length) {
       return {
         status: OnboardingStatusEnum.DATASOURCE_SAVED,
+        projectId: id,
       };
     } else {
       return {
         status: OnboardingStatusEnum.ONBOARDING_FINISHED,
+        projectId: id,
       };
     }
   }
@@ -303,6 +307,18 @@ export class ProjectResolver {
           version,
         });
         logger.debug(`Data source tables fetched`);
+
+        // For BigQuery, attempt dataset discovery after connection validation
+        if (type === DataSourceName.BIG_QUERY) {
+          try {
+            logger.debug(`Attempting dataset discovery for BigQuery project: ${project.id}`);
+            // Don't block connection creation if dataset discovery fails
+            await ctx.metadataService.discoverDatasets(project);
+          } catch (error) {
+            logger.warn(`Dataset discovery failed for project ${project.id}: ${error.message}`);
+            // Continue with normal flow even if dataset discovery fails
+          }
+        }
       }
       // telemetry
       ctx.telemetry.sendEvent(eventName, eventProperties);
@@ -388,7 +404,11 @@ export class ProjectResolver {
   public async saveTables(
     _root: any,
     arg: {
-      data: { tables: string[] };
+      data: { 
+        tables: string[];
+        selectedDatasets?: string[];
+        manualDatasets?: string[];
+      };
     },
     ctx: IContext,
   ) {
@@ -403,11 +423,27 @@ export class ProjectResolver {
         ctx,
         project,
       );
+
+      // Store dataset context for multi-dataset awareness
+      const allDatasets = [
+        ...(arg.data.selectedDatasets || []),
+        ...(arg.data.manualDatasets || []),
+      ];
+      
+      if (allDatasets.length > 0) {
+        // Update project with dataset information for future reference
+        await ctx.projectService.updateProject(project.id, {
+          datasets: allDatasets,
+        });
+        logger.debug(`Stored dataset context: ${allDatasets.join(', ')}`);
+      }
+
       // telemetry
       ctx.telemetry.sendEvent(eventName, {
         dataSourceType: project.type,
         tablesCount: models.length,
         columnsCount: columns.length,
+        datasetsCount: allDatasets.length,
       });
 
       // async deploy to wren-engine and ai service

@@ -4,6 +4,7 @@ export const ONBOARDING_STATUS = gql`
   query OnboardingStatus {
     onboardingStatus {
       status
+      projectId
     }
   }
 `;

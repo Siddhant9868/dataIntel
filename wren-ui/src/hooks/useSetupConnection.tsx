@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { SETUP } from '@/utils/enum';
 import { parseGraphQLError } from '@/utils/errorHandler';
 import useSetupConnectionDataSource from './useSetupConnectionDataSource';
 import useSetupConnectionSampleDataset from './useSetupConnectionSampleDataset';
+import { useSetupFlow } from './useSetupFlow';
 import {
   DataSourceName,
   SampleDatasetName,
@@ -17,7 +18,23 @@ type StepData = {
 export default function useSetupConnection() {
   const [stepKey, setStepKey] = useState(SETUP.STARTER);
   const setupConnectionSampleDataset = useSetupConnectionSampleDataset();
-  const setupConnectionDataSource = useSetupConnectionDataSource();
+  const setupFlow = useSetupFlow();
+
+  // Handle dataset discovery after connection creation
+  const handleConnectionCompleted = useCallback(
+    async (dataSourceType: DataSourceName) => {
+      if (dataSourceType === DataSourceName.BIG_QUERY) {
+        // For BigQuery, the backend already attempts dataset discovery
+        // The setup models page will handle fetching discovered datasets
+        console.log('BigQuery connection completed - dataset discovery handled by backend');
+      }
+    },
+    [setupFlow],
+  );
+
+  const setupConnectionDataSource = useSetupConnectionDataSource({
+    onConnectionCompleted: handleConnectionCompleted,
+  });
   const [connectError, setConnectError] = useState(null);
 
   const dataSource = setupConnectionDataSource.selected;

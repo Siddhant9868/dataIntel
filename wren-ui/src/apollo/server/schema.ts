@@ -245,6 +245,8 @@ export const typeDefs = gql`
 
   input SaveTablesInput {
     tables: [String!]!
+    selectedDatasets: [String!]
+    manualDatasets: [String!]
   }
 
   type CompactColumn {
@@ -471,6 +473,7 @@ export const typeDefs = gql`
   # onboarding
   type OnboardingStatusResponse {
     status: OnboardingStatus
+    projectId: Int
   }
 
   type ModelSyncResponse {

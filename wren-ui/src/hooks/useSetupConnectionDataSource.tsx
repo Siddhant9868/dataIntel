@@ -6,14 +6,20 @@ import { DataSourceName } from '@/apollo/client/graphql/__types__';
 
 const PASSWORD_PLACEHOLDER = '************';
 
-export default function useSetupConnectionDataSource() {
+interface UseSetupConnectionDataSourceOptions {
+  onConnectionCompleted?: (dataSourceType: DataSourceName) => Promise<void>;
+}
+
+export default function useSetupConnectionDataSource(
+  options?: UseSetupConnectionDataSourceOptions,
+) {
   const router = useRouter();
   const [selected, setSelected] = useState<DataSourceName>();
 
   const [saveDataSourceMutation, { loading, error }] =
     useSaveDataSourceMutation({
       onError: (error) => console.error(error),
-      onCompleted: () => completedDataSourceSave(),
+      onCompleted: (data) => completedDataSourceSave(data.saveDataSource.type),
     });
 
   const selectDataSourceNext = useCallback(
@@ -38,9 +44,22 @@ export default function useSetupConnectionDataSource() {
     [selected, saveDataSourceMutation],
   );
 
-  const completedDataSourceSave = useCallback(async () => {
-    router.push(Path.OnboardingModels);
-  }, [selected, router]);
+  const completedDataSourceSave = useCallback(
+    async (dataSourceType: DataSourceName) => {
+      // Allow external callback to handle post-connection logic (like dataset discovery)
+      if (options?.onConnectionCompleted) {
+        try {
+          await options.onConnectionCompleted(dataSourceType);
+        } catch (error) {
+          console.warn('Post-connection handling failed:', error);
+          // Continue with normal flow even if post-connection handling fails
+        }
+      }
+      
+      router.push(Path.OnboardingModels);
+    },
+    [options, router],
+  );
 
   return {
     loading,
