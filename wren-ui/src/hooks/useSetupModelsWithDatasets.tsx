@@ -47,6 +47,24 @@ export default function useSetupModelsWithDatasets() {
     }
   }, [onboardingData, setupFlow]);
 
+  // If dataset IDs were selected during connection, trigger table fetch immediately
+  useEffect(() => {
+    const projectId = onboardingData?.onboardingStatus?.projectId;
+    if (!projectId) return;
+    try {
+      const stored =
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem('wren:selectedDatasets')
+          : null;
+      if (stored) {
+        const datasetIds = JSON.parse(stored);
+        if (Array.isArray(datasetIds) && datasetIds.length > 0) {
+          setupFlow.handleDatasetSelection(projectId, datasetIds);
+        }
+      }
+    } catch (_) {}
+  }, [onboardingData, setupFlow]);
+
   const submitModels = useCallback(
     async (data: SetupModelsNextData) => {
       try {
@@ -91,17 +109,6 @@ export default function useSetupModelsWithDatasets() {
       ? setupFlow.loading
       : fallbackLoading;
 
-  // Create a wrapper function that provides the project ID for dataset selection
-  const handleDatasetChange = useCallback(
-    (datasetIds: string[]) => {
-      const projectId = onboardingData?.onboardingStatus?.projectId;
-      if (projectId) {
-        setupFlow.handleDatasetSelection(projectId, datasetIds);
-      }
-    },
-    [onboardingData, setupFlow],
-  );
-
   return {
     // Setup flow data
     datasets: setupFlow.datasets,
@@ -117,7 +124,7 @@ export default function useSetupModelsWithDatasets() {
     onNext,
 
     // Dataset change handlers
-    onDatasetChange: handleDatasetChange,
+    onDatasetChange: setupFlow.handleDatasetSelection,
 
     // State helpers
     hasDatasets: setupFlow.hasDatasets,
