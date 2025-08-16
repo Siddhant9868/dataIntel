@@ -28,6 +28,9 @@ export default function ConnectDataSource(props: Props) {
   const [form] = Form.useForm();
   const current = getDataSource(dataSource);
 
+  // Watch BigQuery discovery validating flag set by child properties component
+  const bqValidating = Form.useWatch('bq_discoveryValidating', form) || false;
+
   const submit = () => {
     form
       .validateFields()
@@ -83,6 +86,10 @@ export default function ConnectDataSource(props: Props) {
           </Col>
         </Row>
         <current.component />
+        {/* Hidden field controlled by BigQuery properties to indicate discovery status */}
+        <Form.Item name="bq_discoveryValidating" hidden>
+          <input type="hidden" />
+        </Form.Item>
       </StyledForm>
 
       {connectError && (
@@ -117,6 +124,7 @@ export default function ConnectDataSource(props: Props) {
             onClick={submit}
             loading={submitting}
             className="adm-onboarding-btn"
+            disabled={submitting || bqValidating}
           >
             Next
           </Button>
