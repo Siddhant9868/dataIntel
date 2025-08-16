@@ -13,9 +13,14 @@ import {
   BigQueryDatasetService,
   IbigQueryDatasetService,
 } from './bigqueryDatasetService';
+import { getConfig } from '../config';
+import { Encryptor } from '../utils';
 
 const logger = getLogger('MetadataService');
 logger.level = 'debug';
+
+const config = getConfig();
+const encryptor = new Encryptor(config);
 
 export interface CompactColumn {
   name: string;
@@ -119,11 +124,16 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
       throw new Error('Dataset discovery is only supported for BigQuery');
     }
 
-    const { projectId, credentials } =
-      connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    // Decrypt the connection info to get the actual credentials
+    const { credentials } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    const decryptedCredentials = encryptor.decrypt(credentials);
+    const parsedCredentials = JSON.parse(decryptedCredentials).credentials;
+
+    const { projectId } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+
     return await this.bigQueryDatasetService.discoverDatasets(
       projectId,
-      credentials,
+      parsedCredentials,
     );
   }
 
@@ -189,12 +199,17 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
       return { accessible: datasetIds, inaccessible: [] };
     }
 
-    const { projectId, credentials } =
-      connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    // Decrypt the connection info to get the actual credentials
+    const { credentials } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    const decryptedCredentials = encryptor.decrypt(credentials);
+    const parsedCredentials = JSON.parse(decryptedCredentials).credentials;
+
+    const { projectId } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+
     return await this.bigQueryDatasetService.validateMultipleDatasetAccess(
       projectId,
       datasetIds,
-      credentials,
+      parsedCredentials,
     );
   }
 }

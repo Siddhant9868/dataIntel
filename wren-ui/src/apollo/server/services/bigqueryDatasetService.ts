@@ -47,12 +47,50 @@ export class BigQueryDatasetService implements IbigQueryDatasetService {
     try {
       logger.debug(`Attempting to discover datasets for project: ${projectId}`);
 
+      // Validate and parse credentials with better error handling
+      let parsedCredentials;
+      try {
+        // First, try to decode from base64
+        const decodedCredentials = Buffer.from(
+          credentials,
+          'base64',
+        ).toString();
+        logger.debug(
+          `Decoded credentials length: ${decodedCredentials.length}`,
+        );
+
+        // Try to parse as JSON
+        parsedCredentials = JSON.parse(decodedCredentials);
+        logger.debug('Successfully parsed credentials as JSON');
+      } catch (parseError: any) {
+        logger.error(`Failed to parse credentials: ${parseError.message}`);
+
+        // Check if credentials might already be a JSON string
+        try {
+          parsedCredentials = JSON.parse(credentials);
+          logger.debug('Credentials were already JSON, not base64 encoded');
+        } catch (jsonError: any) {
+          logger.error(
+            `Credentials are neither valid base64+JSON nor direct JSON: ${jsonError.message}`,
+          );
+          return {
+            success: false,
+            error: {
+              code: 'INVALID_CREDENTIALS',
+              message:
+                'Invalid credentials format. Please check your service account key format.',
+              requiresManualInput: false,
+            },
+          };
+        }
+      }
+
       // Import BigQuery client dynamically to avoid dependency issues
       const { BigQuery } = await import('@google-cloud/bigquery');
 
       const bigquery = new BigQuery({
         projectId,
-        credentials: JSON.parse(Buffer.from(credentials, 'base64').toString()),
+        credentials: parsedCredentials,
       });
 
       // Attempt to list datasets
