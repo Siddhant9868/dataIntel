@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Path, SETUP } from '@/utils/enum';
 import { useRouter } from 'next/router';
 import {
@@ -19,51 +19,80 @@ export default function useSetupModelsWithDatasets() {
   const router = useRouter();
   const setupFlow = useSetupFlow();
 
-  // Get project information to trigger dataset discovery if needed
+  // Get project information
   const { data: onboardingData } = useQuery(ONBOARDING_STATUS, {
     fetchPolicy: 'cache-and-network',
   });
 
-  // Fallback to regular table listing if dataset flow is not active
-  // For BigQuery projects, we should NOT use this fallback as it requires dataset_id
+  const getStoredDatasetIds = () => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const raw = window.localStorage.getItem('wren:selectedDatasets');
+      if (!raw) return null;
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) && arr.length > 0 ? (arr as string[]) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Avoid fallback query when dataset flow is active (loading, have selected datasets, or tables fetched)
+  const datasetFlowActive = useMemo(() => {
+    return (
+      setupFlow.loading ||
+      (setupFlow.selectedDatasets && setupFlow.selectedDatasets.length > 0) ||
+      (setupFlow.tables && setupFlow.tables.length > 0) ||
+      !!setupFlow.hasDatasets ||
+      !!setupFlow.hasDatasetError
+    );
+  }, [
+    setupFlow.loading,
+    setupFlow.selectedDatasets,
+    setupFlow.tables,
+    setupFlow.hasDatasets,
+    setupFlow.hasDatasetError,
+  ]);
+
+  // Fallback to regular table listing only if dataset flow is NOT active
   const { data: fallbackData, loading: fallbackLoading } =
     useListDataSourceTablesQuery({
       fetchPolicy: 'no-cache',
       onError: (error) => console.error(error),
-      // Skip the fallback query if we have datasets, dataset errors, or if we're in the middle of dataset discovery
-      skip:
-        setupFlow.hasDatasets || setupFlow.hasDatasetError || setupFlow.loading,
+      skip: datasetFlowActive,
     });
 
   const [saveTablesMutation, { loading: submitting }] = useSaveTablesMutation();
 
-  // Trigger dataset discovery when component mounts if we have a BigQuery project
+  // Trigger dataset discovery only if we didn't already select datasets during connection
   useEffect(() => {
     const projectId = onboardingData?.onboardingStatus?.projectId;
-    if (projectId && !setupFlow.hasDatasets && !setupFlow.hasDatasetError) {
-      // Try to trigger dataset discovery for BigQuery projects
-      // This will only work if it's a BigQuery connection
+    const stored = getStoredDatasetIds();
+    if (
+      projectId &&
+      !stored &&
+      !setupFlow.hasDatasets &&
+      !setupFlow.hasDatasetError
+    ) {
       setupFlow.handleConnectionCreated(projectId);
     }
-  }, [onboardingData, setupFlow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingData, setupFlow.hasDatasets, setupFlow.hasDatasetError]);
 
-  // If dataset IDs were selected during connection, trigger table fetch immediately
+  // If dataset IDs were selected during connection, trigger table fetch immediately and clear storage
   useEffect(() => {
     const projectId = onboardingData?.onboardingStatus?.projectId;
     if (!projectId) return;
-    try {
-      const stored =
-        typeof window !== 'undefined'
-          ? window.localStorage.getItem('wren:selectedDatasets')
-          : null;
-      if (stored) {
-        const datasetIds = JSON.parse(stored);
-        if (Array.isArray(datasetIds) && datasetIds.length > 0) {
-          setupFlow.handleDatasetSelection(projectId, datasetIds);
+    const stored = getStoredDatasetIds();
+    if (stored) {
+      setupFlow.handleDatasetSelection(projectId, stored);
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('wren:selectedDatasets');
         }
-      }
-    } catch (_) {}
-  }, [onboardingData, setupFlow]);
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingData]);
 
   const submitModels = useCallback(
     async (data: SetupModelsNextData) => {
@@ -97,17 +126,23 @@ export default function useSetupModelsWithDatasets() {
     [submitModels],
   );
 
-  // Use dataset flow tables if available, otherwise fallback to regular listing
-  // For BigQuery projects, tables should only be available after datasets are selected
-  const tables =
-    setupFlow.hasDatasets || setupFlow.hasDatasetError
-      ? setupFlow.tables
-      : fallbackData?.listDataSourceTables || [];
+  // Wrapper to inject projectId for dataset change events from the page
+  const handleDatasetChange = useCallback(
+    (datasetIds: string[]) => {
+      const projectId = onboardingData?.onboardingStatus?.projectId;
+      if (projectId) {
+        setupFlow.handleDatasetSelection(projectId, datasetIds);
+      }
+    },
+    [onboardingData, setupFlow],
+  );
 
-  const fetching =
-    setupFlow.hasDatasets || setupFlow.hasDatasetError
-      ? setupFlow.loading
-      : fallbackLoading;
+  // Prefer dataset-flow tables when active
+  const tables = datasetFlowActive
+    ? setupFlow.tables
+    : fallbackData?.listDataSourceTables || [];
+
+  const fetching = datasetFlowActive ? setupFlow.loading : fallbackLoading;
 
   return {
     // Setup flow data
@@ -124,7 +159,7 @@ export default function useSetupModelsWithDatasets() {
     onNext,
 
     // Dataset change handlers
-    onDatasetChange: setupFlow.handleDatasetSelection,
+    onDatasetChange: handleDatasetChange,
 
     // State helpers
     hasDatasets: setupFlow.hasDatasets,
