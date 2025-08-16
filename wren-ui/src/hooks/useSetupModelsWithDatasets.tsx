@@ -38,12 +38,14 @@ export default function useSetupModelsWithDatasets() {
 
   // Avoid fallback query when dataset flow is active (loading, have selected datasets, or tables fetched)
   const datasetFlowActive = useMemo(() => {
+    const hasStoredDatasets = !!getStoredDatasetIds();
     return (
       setupFlow.loading ||
       (setupFlow.selectedDatasets && setupFlow.selectedDatasets.length > 0) ||
       (setupFlow.tables && setupFlow.tables.length > 0) ||
       !!setupFlow.hasDatasets ||
-      !!setupFlow.hasDatasetError
+      !!setupFlow.hasDatasetError ||
+      hasStoredDatasets
     );
   }, [
     setupFlow.loading,
