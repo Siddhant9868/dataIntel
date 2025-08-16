@@ -137,6 +137,21 @@ export default function SelectModels(props: Props) {
               required: true,
               message: 'Please enter at least one dataset ID',
             },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                const datasets = value
+                  .split(',')
+                  .map((ds) => ds.trim())
+                  .filter(Boolean);
+                if (datasets.length === 0) {
+                  return Promise.reject(
+                    new Error('Please enter at least one dataset ID'),
+                  );
+                }
+                return Promise.resolve();
+              },
+            },
           ]}
           help="Enter dataset IDs separated by commas (e.g., dataset1, dataset2)"
         >
@@ -158,58 +173,102 @@ export default function SelectModels(props: Props) {
 
   // Group tables by dataset for better organization
   const renderTablesByDataset = () => {
-    if (!tables.length) {
-      return fetching ? <Spin /> : <div>No tables available</div>;
-    }
-
-    const tablesByDataset = tables.reduce(
-      (acc, table) => {
-        const dataset = extractDatasetFromTable(table);
-        if (!acc[dataset]) acc[dataset] = [];
-        acc[dataset].push(table);
-        return acc;
-      },
-      {} as Record<string, CompactTable[]>,
-    );
-
-    const tableItems = tables.map((item) => ({
-      ...item,
-      value: item.name,
-    }));
-
-    // If we have dataset grouping, show in collapsible panels
-    if (Object.keys(tablesByDataset).length > 1) {
+    // If we have datasets but no tables, show a message prompting to select datasets
+    if (hasDatasets && !tables.length) {
+      if (fetching) {
+        return <Spin />;
+      }
+      if (selectedDatasets.length === 0 && manualDatasets.length === 0) {
+        return (
+          <div className="text-center py-8 text-gray-500">
+            Please select datasets above to view available tables.
+          </div>
+        );
+      }
       return (
-        <Collapse ghost>
-          {Object.entries(tablesByDataset).map(([dataset, datasetTables]) => (
-            <Panel
-              key={dataset}
-              header={`${dataset} (${datasetTables.length} tables)`}
-            >
-              <MultiSelectBox
-                columns={columns}
-                items={datasetTables.map((table) => ({
-                  ...table,
-                  value: table.name,
-                }))}
-                loading={false}
-              />
-            </Panel>
-          ))}
-        </Collapse>
+        <div className="text-center py-8 text-gray-500">
+          No tables found in the selected datasets. Please check your dataset
+          selection or try different datasets.
+        </div>
       );
     }
 
-    // Single dataset or no dataset grouping, show flat list
-    return (
-      <MultiSelectBox columns={columns} items={tableItems} loading={fetching} />
-    );
+    // If no datasets are available (non-BigQuery case), show regular table list
+    if (!hasDatasets) {
+      if (!tables.length) {
+        return fetching ? <Spin /> : <div>No tables available</div>;
+      }
+    }
+
+    // If we have tables, render them
+    if (tables.length) {
+      const tablesByDataset = tables.reduce(
+        (acc, table) => {
+          const dataset = extractDatasetFromTable(table);
+          if (!acc[dataset]) acc[dataset] = [];
+          acc[dataset].push(table);
+          return acc;
+        },
+        {} as Record<string, CompactTable[]>,
+      );
+
+      const tableItems = tables.map((item) => ({
+        ...item,
+        value: item.name,
+      }));
+
+      // If we have dataset grouping, show in collapsible panels
+      if (Object.keys(tablesByDataset).length > 1) {
+        return (
+          <Collapse ghost>
+            {Object.entries(tablesByDataset).map(([dataset, datasetTables]) => (
+              <Panel
+                key={dataset}
+                header={`${dataset} (${datasetTables.length} tables)`}
+              >
+                <MultiSelectBox
+                  columns={columns}
+                  items={datasetTables.map((table) => ({
+                    ...table,
+                    value: table.name,
+                  }))}
+                  loading={false}
+                />
+              </Panel>
+            ))}
+          </Collapse>
+        );
+      }
+
+      // Single dataset or no dataset grouping, show flat list
+      return (
+        <MultiSelectBox
+          columns={columns}
+          items={tableItems}
+          loading={fetching}
+        />
+      );
+    }
+
+    // Fallback case
+    return fetching ? <Spin /> : <div>No tables available</div>;
   };
 
   const submit = () => {
     form
       .validateFields()
       .then((values) => {
+        // For BigQuery projects, ensure datasets are selected if available
+        if (hasDatasets && !selectedDatasets.length && !manualDatasets.length) {
+          form.setFields([
+            {
+              name: 'datasets',
+              errors: ['Please select at least one dataset'],
+            },
+          ]);
+          return;
+        }
+
         onNext &&
           onNext({
             selectedTables: values.tables,
@@ -263,7 +322,7 @@ export default function SelectModels(props: Props) {
             label="Select Tables"
             rules={[
               {
-                required: true,
+                required: tables.length > 0,
                 message: ERROR_TEXTS.SETUP_MODEL.TABLE.REQUIRED,
               },
             ]}
@@ -291,6 +350,12 @@ export default function SelectModels(props: Props) {
             onClick={submit}
             className="adm-onboarding-btn"
             loading={submitting}
+            disabled={
+              submitting ||
+              (hasDatasets &&
+                !selectedDatasets.length &&
+                !manualDatasets.length)
+            }
           >
             Next
           </Button>

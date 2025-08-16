@@ -25,11 +25,14 @@ export default function useSetupModelsWithDatasets() {
   });
 
   // Fallback to regular table listing if dataset flow is not active
+  // For BigQuery projects, we should NOT use this fallback as it requires dataset_id
   const { data: fallbackData, loading: fallbackLoading } =
     useListDataSourceTablesQuery({
       fetchPolicy: 'no-cache',
       onError: (error) => console.error(error),
-      skip: setupFlow.hasDatasets || setupFlow.hasDatasetError,
+      // Skip the fallback query if we have datasets, dataset errors, or if we're in the middle of dataset discovery
+      skip:
+        setupFlow.hasDatasets || setupFlow.hasDatasetError || setupFlow.loading,
     });
 
   const [saveTablesMutation, { loading: submitting }] = useSaveTablesMutation();
@@ -77,6 +80,7 @@ export default function useSetupModelsWithDatasets() {
   );
 
   // Use dataset flow tables if available, otherwise fallback to regular listing
+  // For BigQuery projects, tables should only be available after datasets are selected
   const tables =
     setupFlow.hasDatasets || setupFlow.hasDatasetError
       ? setupFlow.tables
@@ -86,6 +90,17 @@ export default function useSetupModelsWithDatasets() {
     setupFlow.hasDatasets || setupFlow.hasDatasetError
       ? setupFlow.loading
       : fallbackLoading;
+
+  // Create a wrapper function that provides the project ID for dataset selection
+  const handleDatasetChange = useCallback(
+    (datasetIds: string[]) => {
+      const projectId = onboardingData?.onboardingStatus?.projectId;
+      if (projectId) {
+        setupFlow.handleDatasetSelection(projectId, datasetIds);
+      }
+    },
+    [onboardingData, setupFlow],
+  );
 
   return {
     // Setup flow data
@@ -102,7 +117,7 @@ export default function useSetupModelsWithDatasets() {
     onNext,
 
     // Dataset change handlers
-    onDatasetChange: setupFlow.handleDatasetSelection,
+    onDatasetChange: handleDatasetChange,
 
     // State helpers
     hasDatasets: setupFlow.hasDatasets,
