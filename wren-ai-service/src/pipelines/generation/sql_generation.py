@@ -128,7 +128,7 @@ async def post_process(
     post_processor: SQLGenPostProcessor,
     data_source: str,
     project_id: str | None = None,
-    use_dry_plan: bool = False,
+    use_dry_plan: bool = True,
     allow_dry_plan_fallback: bool = True,
     allow_data_preview: bool = False,
 ) -> dict:
@@ -186,7 +186,7 @@ class SQLGeneration(BasicPipeline):
         has_metric: bool = False,
         has_json_field: bool = False,
         sql_functions: list[SqlFunction] | None = None,
-        use_dry_plan: bool = False,
+        use_dry_plan: bool = True,
         allow_dry_plan_fallback: bool = True,
         allow_data_preview: bool = False,
     ):

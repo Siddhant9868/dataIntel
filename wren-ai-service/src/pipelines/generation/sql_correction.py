@@ -99,7 +99,7 @@ async def post_process(
     post_processor: SQLGenPostProcessor,
     data_source: str,
     project_id: str | None = None,
-    use_dry_plan: bool = False,
+    use_dry_plan: bool = True,
     allow_dry_plan_fallback: bool = True,
 ) -> dict:
     return await post_processor.run(
@@ -149,7 +149,7 @@ class SQLCorrection(BasicPipeline):
         invalid_generation_result: Dict[str, str],
         instructions: list[dict] | None = None,
         project_id: str | None = None,
-        use_dry_plan: bool = False,
+        use_dry_plan: bool = True,
         allow_dry_plan_fallback: bool = True,
     ):
         logger.info("SQLCorrection pipeline is running...")

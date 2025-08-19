@@ -27,7 +27,7 @@ class AskRequest(BaseRequest):
     histories: Optional[list[AskHistory]] = Field(default_factory=list)
     ignore_sql_generation_reasoning: bool = False
     enable_column_pruning: bool = False
-    use_dry_plan: bool = False
+    use_dry_plan: bool = True
     allow_dry_plan_fallback: bool = True
     custom_instruction: Optional[str] = None
 
