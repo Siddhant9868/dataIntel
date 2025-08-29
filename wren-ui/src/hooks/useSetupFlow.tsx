@@ -206,7 +206,8 @@ export function useSetupFlow() {
     resetState,
 
     // Helpers
-    hasDatasets: state.datasets.length > 0,
+    hasDatasets:
+      state.datasets.length > 0 || !!state.datasetError?.requiresManualInput,
     hasDatasetError: !!state.datasetError,
     requiresManualInput: state.datasetError?.requiresManualInput || false,
   };

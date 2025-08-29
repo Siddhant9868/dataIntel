@@ -161,11 +161,13 @@ export default function useSetupModelsWithDatasets() {
   // Add development debugging
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
+      const storedDatasets = getStoredDatasetIds();
       console.log('SetupFlow Debug:', {
+        timestamp: new Date().toISOString(),
         hasOnboardingData: !!onboardingData,
         projectId: onboardingData?.onboardingStatus?.projectId,
-        hasStoredDatasets: !!getStoredDatasetIds(),
-        storedDatasets: getStoredDatasetIds(),
+        hasStoredDatasets: !!storedDatasets,
+        storedDatasets: storedDatasets,
         setupFlowState: {
           loading: setupFlow.loading,
           selectedDatasets: setupFlow.selectedDatasets,
@@ -177,6 +179,7 @@ export default function useSetupModelsWithDatasets() {
         datasetFlowActive,
         fallbackDataActive: !datasetFlowActive,
         fallbackTablesCount: fallbackData?.listDataSourceTables?.length || 0,
+        calculatedHasDatasets: setupFlow.hasDatasets || !!storedDatasets,
       });
     }
   }, [
@@ -211,8 +214,8 @@ export default function useSetupModelsWithDatasets() {
     // Dataset change handlers
     onDatasetChange: handleDatasetChange,
 
-    // State helpers
-    hasDatasets: setupFlow.hasDatasets,
+    // State helpers - include stored datasets in hasDatasets calculation
+    hasDatasets: setupFlow.hasDatasets || !!getStoredDatasetIds(),
     requiresManualInput: setupFlow.requiresManualInput,
   };
 }

@@ -29,12 +29,12 @@ export interface IbigQueryDatasetService {
   validateDatasetAccess(
     projectId: string,
     datasetId: string,
-    credentials: string,
+    credentials: string | object,
   ): Promise<boolean>;
   validateMultipleDatasetAccess(
     projectId: string,
     datasetIds: string[],
-    credentials: string,
+    credentials: string | object,
   ): Promise<{ accessible: string[]; inaccessible: string[] }>;
 }
 
@@ -183,16 +183,28 @@ export class BigQueryDatasetService implements IbigQueryDatasetService {
   async validateDatasetAccess(
     projectId: string,
     datasetId: string,
-    credentials: string,
+    credentials: string | object,
   ): Promise<boolean> {
     try {
       logger.debug(`Validating access to dataset: ${projectId}.${datasetId}`);
 
       const { BigQuery } = await import('@google-cloud/bigquery');
 
+      // Handle both base64-encoded strings and already-parsed credentials
+      let parsedCredentials;
+      if (typeof credentials === 'string') {
+        // Assume base64-encoded JSON string
+        parsedCredentials = JSON.parse(
+          Buffer.from(credentials, 'base64').toString(),
+        );
+      } else {
+        // Already parsed object
+        parsedCredentials = credentials;
+      }
+
       const bigquery = new BigQuery({
         projectId,
-        credentials: JSON.parse(Buffer.from(credentials, 'base64').toString()),
+        credentials: parsedCredentials,
       });
 
       const dataset = bigquery.dataset(datasetId);
@@ -212,7 +224,7 @@ export class BigQueryDatasetService implements IbigQueryDatasetService {
   async validateMultipleDatasetAccess(
     projectId: string,
     datasetIds: string[],
-    credentials: string,
+    credentials: string | object,
   ): Promise<{ accessible: string[]; inaccessible: string[] }> {
     logger.debug(`Validating access to ${datasetIds.length} datasets`);
 
