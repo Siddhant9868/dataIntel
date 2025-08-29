@@ -173,11 +173,42 @@ export default function SelectModels(props: Props) {
 
   // Group tables by dataset for better organization
   const renderTablesByDataset = () => {
+    // Add error display for dataset selection failures
+    if (datasetDiscoveryError && !datasetDiscoveryError.requiresManualInput) {
+      return (
+        <div className="text-center py-8">
+          <Alert
+            message="Dataset Processing Failed"
+            description={datasetDiscoveryError.message}
+            type="error"
+            showIcon
+            action={
+              <Button size="small" onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            }
+            className="mb-4"
+          />
+        </div>
+      );
+    }
+
+    // Show loading spinner with more context
+    if (fetching) {
+      return (
+        <div className="text-center py-8">
+          <Spin size="large" />
+          <div className="mt-4 text-gray-500">
+            {hasDatasets
+              ? 'Loading tables from selected datasets...'
+              : 'Loading available tables...'}
+          </div>
+        </div>
+      );
+    }
+
     // If we have datasets but no tables, show a message prompting to select datasets
     if (hasDatasets && !tables.length) {
-      if (fetching) {
-        return <Spin />;
-      }
       if (selectedDatasets.length === 0 && manualDatasets.length === 0) {
         return (
           <div className="text-center py-8 text-gray-500">
@@ -186,9 +217,14 @@ export default function SelectModels(props: Props) {
         );
       }
       return (
-        <div className="text-center py-8 text-gray-500">
-          No tables found in the selected datasets. Please check your dataset
-          selection or try different datasets.
+        <div className="text-center py-8">
+          <Alert
+            message="No Tables Found"
+            description="No tables found in the selected datasets. Please check your dataset selection or try different datasets."
+            type="warning"
+            showIcon
+            className="mb-4"
+          />
         </div>
       );
     }
@@ -196,7 +232,16 @@ export default function SelectModels(props: Props) {
     // If no datasets are available (non-BigQuery case), show regular table list
     if (!hasDatasets) {
       if (!tables.length) {
-        return fetching ? <Spin /> : <div>No tables available</div>;
+        return (
+          <div className="text-center py-8">
+            <Alert
+              message="No Tables Available"
+              description="No tables found in your data source. Please check your connection settings."
+              type="info"
+              showIcon
+            />
+          </div>
+        );
       }
     }
 
@@ -251,7 +296,21 @@ export default function SelectModels(props: Props) {
     }
 
     // Fallback case
-    return fetching ? <Spin /> : <div>No tables available</div>;
+    return (
+      <div className="text-center py-8">
+        <Alert
+          message="Unable to Load Tables"
+          description="There was an issue loading tables. Please try refreshing the page or check your connection."
+          type="error"
+          showIcon
+          action={
+            <Button size="small" onClick={() => window.location.reload()}>
+              Refresh
+            </Button>
+          }
+        />
+      </div>
+    );
   };
 
   const submit = () => {

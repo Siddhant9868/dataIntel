@@ -24,7 +24,7 @@ export default function useSetupModelsWithDatasets() {
     fetchPolicy: 'cache-and-network',
   });
 
-  const getStoredDatasetIds = () => {
+  const getStoredDatasetIds = useCallback(() => {
     try {
       if (typeof window === 'undefined') return null;
       const raw = window.localStorage.getItem('wren:selectedDatasets');
@@ -34,7 +34,7 @@ export default function useSetupModelsWithDatasets() {
     } catch {
       return null;
     }
-  };
+  }, []);
 
   // Avoid fallback query when dataset flow is active (loading, have selected datasets, or tables fetched)
   const datasetFlowActive = useMemo(() => {
@@ -53,6 +53,7 @@ export default function useSetupModelsWithDatasets() {
     setupFlow.tables,
     setupFlow.hasDatasets,
     setupFlow.hasDatasetError,
+    getStoredDatasetIds,
   ]);
 
   // Fallback to regular table listing only if dataset flow is NOT active
@@ -77,24 +78,42 @@ export default function useSetupModelsWithDatasets() {
     ) {
       setupFlow.handleConnectionCreated(projectId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboardingData, setupFlow.hasDatasets, setupFlow.hasDatasetError]);
+  }, [
+    onboardingData,
+    setupFlow.hasDatasets,
+    setupFlow.hasDatasetError,
+    setupFlow.handleConnectionCreated,
+    getStoredDatasetIds,
+  ]);
 
   // If dataset IDs were selected during connection, trigger table fetch immediately and clear storage
   useEffect(() => {
     const projectId = onboardingData?.onboardingStatus?.projectId;
     if (!projectId) return;
+
     const stored = getStoredDatasetIds();
     if (stored) {
-      setupFlow.handleDatasetSelection(projectId, stored);
-      try {
-        if (typeof window !== 'undefined') {
-          window.localStorage.removeItem('wren:selectedDatasets');
-        }
-      } catch {}
+      // Add error boundary and logging
+      console.log('Processing stored datasets:', stored);
+
+      setupFlow
+        .handleDatasetSelection(projectId, stored)
+        .then(() => {
+          console.log('Successfully processed stored datasets');
+          try {
+            if (typeof window !== 'undefined') {
+              window.localStorage.removeItem('wren:selectedDatasets');
+            }
+          } catch (e) {
+            console.warn('Failed to clear localStorage:', e);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to process stored datasets:', error);
+          // Don't clear localStorage on error so user can retry
+        });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboardingData]);
+  }, [onboardingData, setupFlow.handleDatasetSelection, getStoredDatasetIds]);
 
   const submitModels = useCallback(
     async (data: SetupModelsNextData) => {
@@ -138,6 +157,35 @@ export default function useSetupModelsWithDatasets() {
     },
     [onboardingData, setupFlow],
   );
+
+  // Add development debugging
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('SetupFlow Debug:', {
+        hasOnboardingData: !!onboardingData,
+        projectId: onboardingData?.onboardingStatus?.projectId,
+        hasStoredDatasets: !!getStoredDatasetIds(),
+        storedDatasets: getStoredDatasetIds(),
+        setupFlowState: {
+          loading: setupFlow.loading,
+          selectedDatasets: setupFlow.selectedDatasets,
+          tables: setupFlow.tables?.length || 0,
+          hasDatasets: setupFlow.hasDatasets,
+          hasDatasetError: setupFlow.hasDatasetError,
+          datasetError: setupFlow.datasetError,
+        },
+        datasetFlowActive,
+        fallbackDataActive: !datasetFlowActive,
+        fallbackTablesCount: fallbackData?.listDataSourceTables?.length || 0,
+      });
+    }
+  }, [
+    onboardingData,
+    getStoredDatasetIds,
+    setupFlow,
+    datasetFlowActive,
+    fallbackData,
+  ]);
 
   // Prefer dataset-flow tables when active
   const tables = datasetFlowActive

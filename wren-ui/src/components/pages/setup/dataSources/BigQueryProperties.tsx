@@ -100,6 +100,13 @@ export default function BigQueryProperties(props: Props) {
       form?.setFieldsValue?.({ bq_discoveryValidating: true });
     } catch {}
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('BigQuery Discovery Debug: Starting discovery', {
+        projectId: projectIdValue,
+        hasCredentials: !!credentials,
+      });
+    }
+
     try {
       const res = await fetch('/api/internal/bigquery/discover', {
         method: 'POST',
@@ -107,6 +114,15 @@ export default function BigQueryProperties(props: Props) {
         body: JSON.stringify({ projectId: projectIdValue, credentials }),
       });
       const data = await res.json();
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('BigQuery Discovery Debug: Response received', {
+          success: data.success,
+          datasetsCount: data.datasets?.length || 0,
+          error: data.error,
+        });
+      }
+
       if (data.success) {
         setLocalState((s) => ({
           ...s,
@@ -121,6 +137,9 @@ export default function BigQueryProperties(props: Props) {
         }));
       }
     } catch (error: any) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('BigQuery Discovery Debug: Request failed', error);
+      }
       setLocalState((s) => ({
         ...s,
         discovered: [],

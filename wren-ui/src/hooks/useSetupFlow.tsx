@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useLazyQuery } from '@apollo/client';
 import {
   DISCOVER_DATASETS,
@@ -35,6 +35,10 @@ export function useSetupFlow() {
     tables: [],
     loading: false,
   });
+
+  // Add ref for stable function tracking
+  const handleDatasetSelectionRef =
+    useRef<(projectId: number, datasetIds: string[]) => Promise<void>>();
 
   const [discoverDatasets, { loading: discoveringDatasets }] = useLazyQuery(
     DISCOVER_DATASETS,
@@ -117,6 +121,8 @@ export function useSetupFlow() {
       }));
 
       try {
+        console.log(`Validating access to ${datasetIds.length} datasets`);
+
         // Validate dataset access
         const accessResult = await validateAccess({
           variables: { projectId, datasetIds },
@@ -131,21 +137,41 @@ export function useSetupFlow() {
 
         // Fetch tables from accessible datasets
         if (accessible?.length > 0) {
+          console.log(
+            `Fetching tables from ${accessible.length} accessible datasets`,
+          );
           await fetchTablesFromDatasets({
             variables: {
               projectId,
               datasetIds: accessible,
             },
           });
+        } else {
+          console.warn('No accessible datasets found');
+          setState((prev) => ({ ...prev, tables: [] }));
         }
       } catch (error) {
         console.error('Failed to fetch tables from datasets:', error);
+        setState((prev) => ({
+          ...prev,
+          tables: [],
+          datasetError: {
+            code: 'TABLE_FETCH_FAILED',
+            message:
+              error.message || 'Failed to fetch tables from selected datasets',
+            requiresManualInput: false,
+          },
+        }));
+        throw error; // Re-throw so caller can handle
       } finally {
         setState((prev) => ({ ...prev, loading: false }));
       }
     },
     [validateAccess, fetchTablesFromDatasets],
   );
+
+  // Keep ref updated
+  handleDatasetSelectionRef.current = handleDatasetSelection;
 
   const handleManualDatasetInput = useCallback(
     async (projectId: number, datasetIds: string[]) => {
