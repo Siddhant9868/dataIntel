@@ -161,6 +161,11 @@ export const typeDefs = gql`
     error: DatasetDiscoveryError
   }
 
+  type DatasetAccessResult {
+    accessible: [String!]!
+    inaccessible: [String!]!
+  }
+
   input WhereIdInput {
     id: Int!
   }
@@ -1189,7 +1194,10 @@ export const typeDefs = gql`
       projectId: Int!
       datasetIds: [String!]!
     ): [CompactTable!]!
-    validateDatasetAccess(projectId: Int!, datasetId: String!): Boolean!
+    validateDatasetAccess(
+      projectId: Int!
+      datasetIds: [String!]!
+    ): DatasetAccessResult!
   }
 
   type Mutation {
