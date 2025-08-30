@@ -35,24 +35,6 @@ export default function ConnectDataSource(props: Props) {
     form
       .validateFields()
       .then((values) => {
-        // Persist selected datasets (or manual ones) for the next page to consume
-        try {
-          const datasetIds: string[] = Array.isArray(values?.selectedDatasets)
-            ? values.selectedDatasets
-            : typeof values?.manualDatasets === 'string'
-              ? values.manualDatasets
-                  .split(',')
-                  .map((s: string) => s.trim())
-                  .filter(Boolean)
-              : [];
-          if (datasetIds.length > 0 && typeof window !== 'undefined') {
-            window.localStorage.setItem(
-              'wren:selectedDatasets',
-              JSON.stringify(datasetIds),
-            );
-          }
-        } catch (_) {}
-
         onNext && onNext({ properties: values });
       })
       .catch((error) => {

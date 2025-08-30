@@ -490,63 +490,40 @@ export class ProjectResolver {
     // get current project
     const project = await ctx.projectService.getCurrentProject();
     try {
+      // Validate that at least one table is selected
+      if (!arg.data.tables || arg.data.tables.length === 0) {
+        throw new Error('At least one table must be selected');
+      }
+
       // Validate BigQuery projects have dataset context
       if (
         project.type === DataSourceName.BIG_QUERY &&
-        !arg.data.selections?.length &&
-        !arg.data.selectedDatasets?.length &&
-        !arg.data.manualDatasets?.length
+        !arg.data.selections?.length
       ) {
         throw new Error(
-          'BigQuery projects require dataset selection. Please select datasets before selecting tables.',
+          'BigQuery projects require dataset selection. Please select datasets and tables.',
         );
       }
 
-      // Collect selection context - prefer structured selections over legacy format
-      let datasetContext: {
-        selectedDatasets?: string[];
-        manualDatasets?: string[];
-        selections?: Array<{ datasetId: string; tableName: string }>;
-      };
-
-      let allDatasets: string[] = [];
-
-      if (arg.data.selections?.length > 0) {
-        // Use structured selections (preferred)
-        datasetContext = { selections: arg.data.selections };
-        allDatasets = [...new Set(arg.data.selections.map((s) => s.datasetId))];
-        logger.debug(
-          `Using structured selections: ${arg.data.selections.length} tables from ${allDatasets.length} datasets`,
-        );
-      } else {
-        // Legacy path - use selectedDatasets and manualDatasets
-        datasetContext = {
-          selectedDatasets: arg.data.selectedDatasets,
-          manualDatasets: arg.data.manualDatasets,
-        };
-        allDatasets = [
-          ...(arg.data.selectedDatasets || []),
-          ...(arg.data.manualDatasets || []),
-        ];
-        logger.debug(
-          `Using legacy dataset selection: ${allDatasets.join(', ')}`,
-        );
-      }
-
-      // delete existing models and columns
+      // For BigQuery, use selections; for others, use simple table names
       const { models, columns } = await this.overwriteModelsAndColumns(
         arg.data.tables,
         ctx,
         project,
-        datasetContext,
+        arg.data.selections,
       );
 
       // telemetry
+      const datasetsCount =
+        project.type === DataSourceName.BIG_QUERY && arg.data.selections
+          ? new Set(arg.data.selections.map((s) => s.datasetId)).size
+          : 1;
+
       ctx.telemetry.sendEvent(eventName, {
         dataSourceType: project.type,
         tablesCount: models.length,
         columnsCount: columns.length,
-        datasetsCount: allDatasets.length,
+        datasetsCount,
       });
 
       // async deploy to wren-engine and ai service
@@ -976,11 +953,7 @@ export class ProjectResolver {
     tables: string[],
     ctx: IContext,
     project: Project,
-    datasetContext?: {
-      selectedDatasets?: string[];
-      manualDatasets?: string[];
-      selections?: Array<{ datasetId: string; tableName: string }>;
-    },
+    selections?: Array<{ datasetId: string; tableName: string }>,
   ) {
     // delete existing models and columns
     await ctx.modelService.deleteAllModelsByProjectId(project.id);
@@ -988,11 +961,9 @@ export class ProjectResolver {
     let compactTables: CompactTable[] = [];
     let selectedTables: CompactTable[] = [];
 
-    if (datasetContext?.selections?.length > 0) {
-      // Structured selections - fetch tables from specific datasets
-      const datasetIds = [
-        ...new Set(datasetContext.selections.map((s) => s.datasetId)),
-      ];
+    if (project.type === DataSourceName.BIG_QUERY && selections?.length > 0) {
+      // BigQuery with dataset selections
+      const datasetIds = [...new Set(selections.map((s) => s.datasetId))];
       compactTables = await ctx.metadataService.listTablesFromDatasets(
         project,
         datasetIds,
@@ -1001,29 +972,12 @@ export class ProjectResolver {
       // Filter by both dataset and table name for precise matching
       selectedTables = compactTables.filter((table) => {
         const tableDataset = table.properties?.dataset;
-        return datasetContext.selections?.some(
+        return selections.some(
           (selection) =>
             selection.datasetId === tableDataset &&
             selection.tableName === table.name,
         );
       });
-    } else if (
-      project.type === DataSourceName.BIG_QUERY &&
-      (datasetContext?.selectedDatasets?.length > 0 ||
-        datasetContext?.manualDatasets?.length > 0)
-    ) {
-      // Legacy BigQuery multi-dataset path
-      const allDatasets = [
-        ...(datasetContext.selectedDatasets || []),
-        ...(datasetContext.manualDatasets || []),
-      ];
-      compactTables = await ctx.metadataService.listTablesFromDatasets(
-        project,
-        allDatasets,
-      );
-      selectedTables = compactTables.filter((table) =>
-        tables.includes(table.name),
-      );
     } else {
       // Single dataset or non-BigQuery path
       compactTables =
@@ -1045,19 +999,11 @@ export class ProjectResolver {
         }
 
         // Store dataset context for reference
-        if (datasetContext) {
-          if (datasetContext.selections?.length > 0) {
+        if (selections) {
+          if (selections.length > 0) {
             properties.datasetContext = [
-              ...new Set(datasetContext.selections.map((s) => s.datasetId)),
+              ...new Set(selections.map((s) => s.datasetId)),
             ];
-          } else {
-            const allDatasets = [
-              ...(datasetContext.selectedDatasets || []),
-              ...(datasetContext.manualDatasets || []),
-            ];
-            if (allDatasets.length > 0) {
-              properties.datasetContext = allDatasets;
-            }
           }
         }
       }

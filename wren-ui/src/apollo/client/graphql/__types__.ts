@@ -1369,8 +1369,6 @@ export type SaveRelationInput = {
 };
 
 export type SaveTablesInput = {
-  manualDatasets?: InputMaybe<Array<Scalars['String']>>;
-  selectedDatasets?: InputMaybe<Array<Scalars['String']>>;
   selections?: InputMaybe<Array<TableSelectionInput>>;
   tables: Array<Scalars['String']>;
 };

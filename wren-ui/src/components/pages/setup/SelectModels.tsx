@@ -39,8 +39,6 @@ interface Props {
   datasetDiscoveryError?: DatasetDiscoveryError;
   onNext: (data: {
     selectedTables: string[];
-    selectedDatasets?: string[];
-    manualDatasets?: string[];
     selections?: Array<{ datasetId: string; tableName: string }>;
   }) => void;
   onBack: () => void;
@@ -207,6 +205,11 @@ export default function SelectModels(props: Props) {
                 .map((id) => id.trim())
                 .filter((id) => id.length > 0);
               setManualDatasets(datasetIds);
+
+              // Trigger table fetch when datasets are entered
+              if (datasetIds.length > 0 && onDatasetChange) {
+                onDatasetChange(datasetIds);
+              }
             }}
           />
         </Form.Item>
@@ -360,18 +363,16 @@ export default function SelectModels(props: Props) {
     form
       .validateFields()
       .then((values) => {
-        console.log('SelectModels submit:', {
-          selectedDatasets,
-          manualDatasets,
-          tables: tables.length,
-          selectedTables: values.tables,
-          isBigQuery,
-          hasDatasets,
-          tableSample: tables.slice(0, 3).map((t) => ({
-            name: t.name,
-            properties: t.properties,
-          })),
-        });
+        // Validate that at least one table is selected
+        if (!values.tables || values.tables.length === 0) {
+          form.setFields([
+            {
+              name: 'tables',
+              errors: ['Please select at least one table'],
+            },
+          ]);
+          return;
+        }
 
         // For BigQuery projects, ensure datasets are selected if available
         if (isBigQuery && !selectedDatasets.length && !manualDatasets.length) {
@@ -413,22 +414,9 @@ export default function SelectModels(props: Props) {
           });
         }
 
-        console.log('Calling onNext with:', {
-          selectedTables: values.tables,
-          selectedDatasets:
-            selectedDatasets.length > 0 ? selectedDatasets : undefined,
-          manualDatasets:
-            manualDatasets.length > 0 ? manualDatasets : undefined,
-          selections: selections.length > 0 ? selections : undefined,
-        });
-
         onNext &&
           onNext({
             selectedTables: values.tables,
-            selectedDatasets:
-              selectedDatasets.length > 0 ? selectedDatasets : undefined,
-            manualDatasets:
-              manualDatasets.length > 0 ? manualDatasets : undefined,
             selections: selections.length > 0 ? selections : undefined,
           });
       })

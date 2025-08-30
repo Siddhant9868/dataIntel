@@ -255,8 +255,6 @@ export const typeDefs = gql`
 
   input SaveTablesInput {
     tables: [String!]!
-    selectedDatasets: [String!]
-    manualDatasets: [String!]
     selections: [TableSelectionInput!]
   }
 

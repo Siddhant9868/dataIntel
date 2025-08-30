@@ -21,8 +21,6 @@ export default function useSetupModels() {
 
   const submitModels = async (data: {
     selectedTables: string[];
-    selectedDatasets?: string[];
-    manualDatasets?: string[];
     selections?: Array<{ datasetId: string; tableName: string }>;
   }) => {
     try {
@@ -30,8 +28,6 @@ export default function useSetupModels() {
         variables: {
           data: {
             tables: data.selectedTables,
-            selectedDatasets: data.selectedDatasets,
-            manualDatasets: data.manualDatasets,
             selections: data.selections,
           },
         },
@@ -48,8 +44,6 @@ export default function useSetupModels() {
 
   const onNext = (data: {
     selectedTables: string[];
-    selectedDatasets?: string[];
-    manualDatasets?: string[];
     selections?: Array<{ datasetId: string; tableName: string }>;
   }) => {
     submitModels(data);
