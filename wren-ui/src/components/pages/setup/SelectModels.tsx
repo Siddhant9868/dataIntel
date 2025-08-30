@@ -385,6 +385,12 @@ export default function SelectModels(props: Props) {
   };
 
   const submit = () => {
+    console.log('=== SUBMIT DEBUG INFO ===');
+    console.log('All available tables:', tables);
+    console.log('Selected datasets:', selectedDatasets);
+    console.log('Manual datasets:', manualDatasets);
+    console.log('Is BigQuery:', isBigQuery);
+
     form
       .validateFields()
       .then((values) => {
@@ -399,54 +405,76 @@ export default function SelectModels(props: Props) {
           return;
         }
 
-        // For BigQuery projects, ensure datasets are selected if available
-        if (isBigQuery && !selectedDatasets.length && !manualDatasets.length) {
-          // Check if we can build selections from table properties
-          let canBuildSelections = false;
-          if (values.tables?.length > 0) {
-            canBuildSelections = values.tables.some((tableName: string) => {
-              const table = tables.find((t) => t.name === tableName);
-              return table?.properties?.dataset;
-            });
-          }
-
-          if (!canBuildSelections) {
-            form.setFields([
-              {
-                name: 'datasets',
-                errors: ['Please select at least one dataset'],
-              },
-            ]);
-            return;
-          }
-        }
-
         // Create structured selections for BigQuery multi-dataset scenarios
         const selections: Array<{ datasetId: string; tableName: string }> = [];
 
         if (isBigQuery && values.tables?.length > 0) {
+          console.log('Building selections for BigQuery:', {
+            tables: values.tables,
+            availableTables: tables,
+            selectedDatasets,
+            manualDatasets,
+          });
+
           // For each selected table, find its dataset and create a structured selection
           values.tables.forEach((tableName: string) => {
             const table = tables.find((t) => t.name === tableName);
             const tableDataset = table?.properties?.dataset;
+
+            console.log(`Table ${tableName}:`, {
+              table,
+              tableDataset,
+              properties: table?.properties,
+            });
 
             if (tableDataset) {
               selections.push({
                 datasetId: tableDataset,
                 tableName: tableName,
               });
+            } else {
+              // If table doesn't have dataset property, try to infer from manual datasets
+              // This is a fallback for edge cases
+              if (manualDatasets.length === 1) {
+                console.log(`Using manual dataset fallback for ${tableName}`);
+                selections.push({
+                  datasetId: manualDatasets[0],
+                  tableName: tableName,
+                });
+              } else if (selectedDatasets.length === 1) {
+                console.log(`Using selected dataset fallback for ${tableName}`);
+                selections.push({
+                  datasetId: selectedDatasets[0],
+                  tableName: tableName,
+                });
+              }
             }
           });
+
+          console.log('Final selections:', selections);
+        }
+
+        // For BigQuery projects, ensure we have valid selections
+        if (isBigQuery && selections.length === 0) {
+          form.setFields([
+            {
+              name: 'tables',
+              errors: [
+                'Unable to determine dataset context for selected tables. Please try reloading tables.',
+              ],
+            },
+          ]);
+          return;
         }
 
         onNext &&
           onNext({
             selectedTables: values.tables,
-            selections: selections.length > 0 ? selections : undefined,
+            selections: isBigQuery ? selections : undefined,
           });
       })
-      .catch((error) => {
-        console.error(error);
+      .catch((info) => {
+        console.log('Validate Failed:', info);
       });
   };
 
