@@ -19,11 +19,21 @@ export default function useSetupModels() {
   // Handle errors via try/catch blocks rather than onError callback
   const [saveTablesMutation, { loading: submitting }] = useSaveTablesMutation();
 
-  const submitModels = async (tables: string[]) => {
+  const submitModels = async (data: {
+    selectedTables: string[];
+    selectedDatasets?: string[];
+    manualDatasets?: string[];
+    selections?: Array<{ datasetId: string; tableName: string }>;
+  }) => {
     try {
       await saveTablesMutation({
         variables: {
-          data: { tables },
+          data: {
+            tables: data.selectedTables,
+            selectedDatasets: data.selectedDatasets,
+            manualDatasets: data.manualDatasets,
+            selections: data.selections,
+          },
         },
       });
       router.push(Path.OnboardingRelationships);
@@ -36,8 +46,13 @@ export default function useSetupModels() {
     router.push(Path.OnboardingConnection);
   };
 
-  const onNext = (data: { selectedTables: string[] }) => {
-    submitModels(data.selectedTables);
+  const onNext = (data: {
+    selectedTables: string[];
+    selectedDatasets?: string[];
+    manualDatasets?: string[];
+    selections?: Array<{ datasetId: string; tableName: string }>;
+  }) => {
+    submitModels(data);
   };
 
   return {

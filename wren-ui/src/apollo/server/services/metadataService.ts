@@ -91,13 +91,20 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
       bigQueryDatasetService || new BigQueryDatasetService();
   }
 
-  public async listTables(project): Promise<CompactTable[]> {
+  public async listTables(
+    project,
+    datasetIds?: string[],
+  ): Promise<CompactTable[]> {
     const { type: dataSource, connectionInfo } = project;
     if (dataSource === DataSourceName.DUCKDB) {
       const tables = await this.wrenEngineAdaptor.listTables();
       return tables;
     }
-    return await this.ibisAdaptor.getTables(dataSource, connectionInfo);
+    return await this.ibisAdaptor.getTables(
+      dataSource,
+      connectionInfo,
+      datasetIds,
+    );
   }
 
   public async listConstraints(

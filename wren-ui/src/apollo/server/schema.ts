@@ -248,10 +248,16 @@ export const typeDefs = gql`
     relations: [RelationInput]!
   }
 
+  input TableSelectionInput {
+    datasetId: String!
+    tableName: String!
+  }
+
   input SaveTablesInput {
     tables: [String!]!
     selectedDatasets: [String!]
     manualDatasets: [String!]
+    selections: [TableSelectionInput!]
   }
 
   type CompactColumn {

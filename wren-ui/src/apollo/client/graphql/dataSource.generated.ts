@@ -86,7 +86,7 @@ export type ValidateDatasetAccessQueryVariables = Types.Exact<{
 }>;
 
 
-export type ValidateDatasetAccessQuery = { __typename?: 'Query', validateDatasetAccess: never };
+export type ValidateDatasetAccessQuery = { __typename?: 'Query', validateDatasetAccess: { __typename?: 'DatasetAccessResult', accessible: Array<string>, inaccessible: Array<string> } };
 
 
 export const StartSampleDatasetDocument = gql`

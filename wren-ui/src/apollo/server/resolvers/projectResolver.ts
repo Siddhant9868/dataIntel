@@ -16,6 +16,7 @@ import {
   handleNestedColumns,
 } from '@server/utils';
 import {
+  BIG_QUERY_CONNECTION_INFO,
   DUCKDB_CONNECTION_INFO,
   Model,
   ModelColumn,
@@ -386,7 +387,42 @@ export class ProjectResolver {
         extensions,
         configurations,
       });
+    } else if (dataSourceType === DataSourceName.BIG_QUERY) {
+      // For BigQuery, skip table fetching if no dataset_id is present
+      // Dataset discovery will happen on the models page
+      const updatedConnectionInfo = {
+        ...project.connectionInfo,
+        ...toUpdateConnectionInfo,
+      } as BIG_QUERY_CONNECTION_INFO;
+      
+      if (!updatedConnectionInfo.datasetId) {
+        logger.debug(`Skipping table fetch for BigQuery without dataset_id`);
+        // Just validate connection via dataset discovery
+        const updatedProject = {
+          ...project,
+          displayName,
+          connectionInfo: updatedConnectionInfo,
+        } as Project;
+        
+        try {
+          await ctx.metadataService.discoverDatasets(updatedProject);
+          logger.debug(`BigQuery connection validated via dataset discovery`);
+        } catch (error) {
+          logger.error(`BigQuery connection validation failed: ${error.message}`);
+          throw new Error(`Failed to connect to BigQuery: ${error.message}`);
+        }
+      } else {
+        // Legacy path: if dataset_id exists, fetch tables
+        const updatedProject = {
+          ...project,
+          displayName,
+          connectionInfo: updatedConnectionInfo,
+        } as Project;
+        await ctx.projectService.getProjectDataSourceTables(updatedProject);
+        logger.debug(`Data source tables fetched for BigQuery with dataset_id`);
+      }
     } else {
+      // For other data sources, fetch tables as before
       const updatedProject = {
         ...project,
         displayName,
@@ -423,6 +459,10 @@ export class ProjectResolver {
         tables: string[];
         selectedDatasets?: string[];
         manualDatasets?: string[];
+        selections?: Array<{
+          datasetId: string;
+          tableName: string;
+        }>;
       };
     },
     ctx: IContext,
@@ -432,22 +472,44 @@ export class ProjectResolver {
     // get current project
     const project = await ctx.projectService.getCurrentProject();
     try {
+      // Collect selection context - prefer structured selections over legacy format
+      let datasetContext: {
+        selectedDatasets?: string[];
+        manualDatasets?: string[];
+        selections?: Array<{ datasetId: string; tableName: string }>;
+      };
+
+      let allDatasets: string[] = [];
+
+      if (arg.data.selections?.length > 0) {
+        // Use structured selections (preferred)
+        datasetContext = { selections: arg.data.selections };
+        allDatasets = [...new Set(arg.data.selections.map((s) => s.datasetId))];
+        logger.debug(
+          `Using structured selections: ${arg.data.selections.length} tables from ${allDatasets.length} datasets`,
+        );
+      } else {
+        // Legacy path - use selectedDatasets and manualDatasets
+        datasetContext = {
+          selectedDatasets: arg.data.selectedDatasets,
+          manualDatasets: arg.data.manualDatasets,
+        };
+        allDatasets = [
+          ...(arg.data.selectedDatasets || []),
+          ...(arg.data.manualDatasets || []),
+        ];
+        logger.debug(
+          `Using legacy dataset selection: ${allDatasets.join(', ')}`,
+        );
+      }
+
       // delete existing models and columns
       const { models, columns } = await this.overwriteModelsAndColumns(
         arg.data.tables,
         ctx,
         project,
+        datasetContext,
       );
-
-      // Store dataset context for multi-dataset awareness
-      const allDatasets = [
-        ...(arg.data.selectedDatasets || []),
-        ...(arg.data.manualDatasets || []),
-      ];
-
-      if (allDatasets.length > 0) {
-        logger.debug(`Dataset context provided: ${allDatasets.join(', ')}`);
-      }
 
       // telemetry
       ctx.telemetry.sendEvent(eventName, {
@@ -481,6 +543,35 @@ export class ProjectResolver {
     const modelIds = models.map((m) => m.id);
     const columns =
       await ctx.modelColumnRepository.findColumnsByModelIds(modelIds);
+
+    // For BigQuery multi-dataset, derive datasets from models and process per dataset
+    if (project.type === DataSourceName.BIG_QUERY) {
+      const datasetIds = [
+        ...new Set(
+          models
+            .map((m) => {
+              const props = m.properties ? JSON.parse(m.properties) : {};
+              return props.dataset;
+            })
+            .filter(Boolean),
+        ),
+      ];
+
+      if (datasetIds.length > 1) {
+        logger.debug(
+          `Processing constraints for ${datasetIds.length} datasets: ${datasetIds.join(', ')}`,
+        );
+        return await this.autoGenerateRelationMultiDataset(
+          ctx,
+          project,
+          models,
+          columns,
+          datasetIds,
+        );
+      }
+    }
+
+    // Single dataset or non-BigQuery path
     const constraints =
       await ctx.projectService.getProjectSuggestedConstraint(project);
 
@@ -537,6 +628,120 @@ export class ProjectResolver {
       displayName,
       referenceName,
       relations: relations.filter(
+        (relation) =>
+          relation.fromModelId === id &&
+          // exclude self-referential relationship
+          relation.toModelId !== relation.fromModelId,
+      ),
+    }));
+  }
+
+  private async autoGenerateRelationMultiDataset(
+    ctx: IContext,
+    project: Project,
+    models: Model[],
+    columns: any[],
+    datasetIds: string[],
+  ) {
+    const allRelations = [];
+
+    // Process each dataset separately to avoid cross-dataset relation ambiguity
+    for (const datasetId of datasetIds) {
+      // Get models for this dataset only
+      const datasetModels = models.filter((m) => {
+        const props = m.properties ? JSON.parse(m.properties) : {};
+        return props.dataset === datasetId;
+      });
+
+      if (datasetModels.length === 0) continue;
+
+      // Get constraints for this specific dataset
+      const datasetConnectionInfo = {
+        ...project.connectionInfo,
+        datasetId,
+      };
+      const datasetProject = {
+        ...project,
+        connectionInfo: datasetConnectionInfo,
+      };
+
+      try {
+        const constraints =
+          await ctx.projectService.getProjectSuggestedConstraint(
+            datasetProject,
+          );
+
+        // Build relations within this dataset only
+        const datasetRelations = [];
+        for (const constraint of constraints) {
+          const {
+            constraintTable,
+            constraintColumn,
+            constraintedTable,
+            constraintedColumn,
+          } = constraint;
+
+          // Find models within this dataset only
+          const fromModel = datasetModels.find(
+            (m) => m.sourceTableName === constraintTable,
+          );
+          const toModel = datasetModels.find(
+            (m) => m.sourceTableName === constraintedTable,
+          );
+
+          if (!fromModel || !toModel) {
+            continue;
+          }
+
+          const fromColumn = columns.find(
+            (c) =>
+              c.modelId === fromModel.id &&
+              c.sourceColumnName === constraintColumn,
+          );
+          const toColumn = columns.find(
+            (c) =>
+              c.modelId === toModel.id &&
+              c.sourceColumnName === constraintedColumn,
+          );
+
+          if (!fromColumn || !toColumn) {
+            continue;
+          }
+
+          // create relation
+          const relation: AnalysisRelationInfo = {
+            name: constraint.constraintName,
+            fromModelId: fromModel.id,
+            fromModelReferenceName: fromModel.referenceName,
+            fromColumnId: fromColumn.id,
+            fromColumnReferenceName: fromColumn.referenceName,
+            toModelId: toModel.id,
+            toModelReferenceName: toModel.referenceName,
+            toColumnId: toColumn.id,
+            toColumnReferenceName: toColumn.referenceName,
+            type: RelationType.ONE_TO_MANY,
+          };
+          datasetRelations.push(relation);
+        }
+
+        allRelations.push(...datasetRelations);
+        logger.debug(
+          `Generated ${datasetRelations.length} relations for dataset ${datasetId}`,
+        );
+      } catch (error) {
+        logger.warn(
+          `Failed to fetch constraints for dataset ${datasetId}: ${error.message}`,
+        );
+        // Continue with other datasets
+      }
+    }
+
+    // Return grouped by model
+    return models.map(({ id, displayName, referenceName }) => ({
+      id,
+      displayName,
+      referenceName,
+      relations: allRelations.filter(
         (relation) =>
           relation.fromModelId === id &&
           // exclude self-referential relationship
@@ -741,29 +946,114 @@ export class ProjectResolver {
     tables: string[],
     ctx: IContext,
     project: Project,
+    datasetContext?: {
+      selectedDatasets?: string[];
+      manualDatasets?: string[];
+      selections?: Array<{ datasetId: string; tableName: string }>;
+    },
   ) {
     // delete existing models and columns
     await ctx.modelService.deleteAllModelsByProjectId(project.id);
 
-    const compactTables: CompactTable[] =
-      await ctx.projectService.getProjectDataSourceTables(project);
+    let compactTables: CompactTable[] = [];
+    let selectedTables: CompactTable[] = [];
 
-    const selectedTables = compactTables.filter((table) =>
-      tables.includes(table.name),
-    );
+    if (datasetContext?.selections?.length > 0) {
+      // Structured selections - fetch tables from specific datasets
+      const datasetIds = [
+        ...new Set(datasetContext.selections.map((s) => s.datasetId)),
+      ];
+      compactTables = await ctx.metadataService.listTablesFromDatasets(
+        project,
+        datasetIds,
+      );
+
+      // Filter by both dataset and table name for precise matching
+      selectedTables = compactTables.filter((table) => {
+        const tableDataset = table.properties?.dataset;
+        return datasetContext.selections?.some(
+          (selection) =>
+            selection.datasetId === tableDataset &&
+            selection.tableName === table.name,
+        );
+      });
+    } else if (
+      project.type === DataSourceName.BIG_QUERY &&
+      (datasetContext?.selectedDatasets?.length > 0 ||
+        datasetContext?.manualDatasets?.length > 0)
+    ) {
+      // Legacy BigQuery multi-dataset path
+      const allDatasets = [
+        ...(datasetContext.selectedDatasets || []),
+        ...(datasetContext.manualDatasets || []),
+      ];
+      compactTables = await ctx.metadataService.listTablesFromDatasets(
+        project,
+        allDatasets,
+      );
+      selectedTables = compactTables.filter((table) =>
+        tables.includes(table.name),
+      );
+    } else {
+      // Single dataset or non-BigQuery path
+      compactTables = await ctx.projectService.getProjectDataSourceTables(project);
+      selectedTables = compactTables.filter((table) =>
+        tables.includes(table.name),
+      );
+    }
 
     // create models
     const modelValues = selectedTables.map((table) => {
-      const properties = table?.properties;
+      const properties = table?.properties || {};
+
+      // For BigQuery, ensure dataset info is preserved
+      if (project.type === DataSourceName.BIG_QUERY) {
+        // Store the actual dataset from table properties
+        if (table.properties?.dataset) {
+          properties.dataset = table.properties.dataset;
+        }
+        
+        // Store dataset context for reference
+        if (datasetContext) {
+          if (datasetContext.selections?.length > 0) {
+            properties.datasetContext = [
+              ...new Set(datasetContext.selections.map((s) => s.datasetId)),
+            ];
+          } else {
+            const allDatasets = [
+              ...(datasetContext.selectedDatasets || []),
+              ...(datasetContext.manualDatasets || []),
+            ];
+            if (allDatasets.length > 0) {
+              properties.datasetContext = allDatasets;
+            }
+          }
+        }
+      }
+
+      // Generate unique reference name for BigQuery with dataset context
+      let referenceName: string;
+      if (project.type === DataSourceName.BIG_QUERY && properties.dataset) {
+        // Use dataset + table name to avoid conflicts
+        referenceName = replaceInvalidReferenceName(
+          `${properties.dataset}_${table.name}`,
+        );
+      } else {
+        referenceName = replaceInvalidReferenceName(table.name);
+      }
+
       // compactTable contain schema and catalog, these information are for building tableReference in mdl
       const model = {
         projectId: project.id,
-        displayName: table.name, // use table name as displayName, referenceName and tableName
-        referenceName: replaceInvalidReferenceName(table.name),
+        displayName: table.name, // Keep display name as just table name for readability
+        referenceName,
         sourceTableName: table.name,
         cached: false,
         refreshTime: null,
-        properties: properties ? JSON.stringify(properties) : null,
+        properties:
+          Object.keys(properties).length > 0
+            ? JSON.stringify(properties)
+            : null,
       } as Partial<Model>;
       return model;
     });

@@ -1,5 +1,5 @@
 import { camelCase, differenceWith, isEmpty, isEqual, uniqBy } from 'lodash';
-import { IContext } from '@server/types';
+import { IContext, DataSourceName } from '@server/types';
 import { getLogger } from 'log4js';
 import { SchemaChange } from '@server/repositories/schemaChangeRepository';
 import { Model, ModelColumn, RelationInfo } from '../repositories';
@@ -464,6 +464,46 @@ export default class DataSourceSchemaDetector
     const project = await this.ctx.projectRepository.findOneBy({
       id: this.projectId,
     });
+
+    // For BigQuery multi-dataset, derive dataset IDs from current models
+    if (project.type === DataSourceName.BIG_QUERY) {
+      const models = await this.ctx.modelRepository.findAllBy({
+        projectId: project.id,
+      });
+
+      const datasetIds = [
+        ...new Set(
+          models
+            .map((m) => {
+              const props = m.properties ? JSON.parse(m.properties) : {};
+              return props.dataset;
+            })
+            .filter(Boolean),
+        ),
+      ];
+
+      if (datasetIds.length > 0) {
+        const latestDataSourceTables =
+          await this.ctx.metadataService.listTablesFromDatasets(
+            project,
+            datasetIds,
+          );
+        const result = latestDataSourceTables.map((table) => {
+          return {
+            name: table.name,
+            columns: table.columns.map((column) => {
+              return {
+                name: column.name,
+                type: column.type,
+              };
+            }),
+          };
+        });
+        return result;
+      }
+    }
+
+    // Single dataset or non-BigQuery path
     const latestDataSourceTables =
       await this.ctx.projectService.getProjectDataSourceTables(project);
     const result = latestDataSourceTables.map((table) => {

@@ -339,6 +339,12 @@ export enum DataSourceName {
   TRINO = 'TRINO'
 }
 
+export type DatasetAccessResult = {
+  __typename?: 'DatasetAccessResult';
+  accessible: Array<Scalars['String']>;
+  inaccessible: Array<Scalars['String']>;
+};
+
 export type DatasetDiscoveryError = {
   __typename?: 'DatasetDiscoveryError';
   code: Scalars['String'];
@@ -1186,7 +1192,7 @@ export type Query = {
   thread: DetailedThread;
   threadResponse: ThreadResponse;
   threads: Array<Thread>;
-  validateDatasetAccess: Scalars['Boolean'];
+  validateDatasetAccess: DatasetAccessResult;
   view: ViewInfo;
 };
 
@@ -1254,7 +1260,7 @@ export type QueryThreadResponseArgs = {
 
 
 export type QueryValidateDatasetAccessArgs = {
-  datasetId: Scalars['String'];
+  datasetIds: Array<Scalars['String']>;
   projectId: Scalars['Int'];
 };
 
@@ -1365,6 +1371,7 @@ export type SaveRelationInput = {
 export type SaveTablesInput = {
   manualDatasets?: InputMaybe<Array<Scalars['String']>>;
   selectedDatasets?: InputMaybe<Array<Scalars['String']>>;
+  selections?: InputMaybe<Array<TableSelectionInput>>;
   tables: Array<Scalars['String']>;
 };
 
@@ -1448,6 +1455,11 @@ export enum SyncStatus {
   SYNCRONIZED = 'SYNCRONIZED',
   UNSYNCRONIZED = 'UNSYNCRONIZED'
 }
+
+export type TableSelectionInput = {
+  datasetId: Scalars['String'];
+  tableName: Scalars['String'];
+};
 
 export type Task = {
   __typename?: 'Task';

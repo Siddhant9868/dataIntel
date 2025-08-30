@@ -170,6 +170,7 @@ export interface IIbisAdaptor {
   getTables: (
     dataSource: DataSourceName,
     connectionInfo: WREN_AI_CONNECTION_INFO,
+    datasetIds?: string[],
   ) => Promise<CompactTable[]>;
   getConstraints: (
     dataSource: DataSourceName,
@@ -325,13 +326,23 @@ export class IbisAdaptor implements IIbisAdaptor {
   public async getTables(
     dataSource: DataSourceName,
     connectionInfo: WREN_AI_CONNECTION_INFO,
+    datasetIds?: string[],
   ): Promise<CompactTable[]> {
     try {
-      const getTablesByConnectionInfo = async (ibisConnectionInfo) => {
+      const getTablesByConnectionInfo = async (
+        ibisConnectionInfo,
+        datasets?: string[],
+      ) => {
         const body = {
           connectionInfo: ibisConnectionInfo,
+          ...(datasets &&
+            dataSource === DataSourceName.BIG_QUERY && {
+              datasetIds: datasets,
+            }),
         };
-        logger.debug(`Getting tables from ibis`);
+        logger.debug(
+          `Getting tables from ibis${datasets ? ` for datasets: ${datasets.join(', ')}` : ''}`,
+        );
         const res: AxiosResponse<CompactTable[]> = await axios.post(
           `${this.ibisServerEndpoint}/${this.getIbisApiVersion(IBIS_API_TYPE.METADATA)}/connector/${dataSourceUrlMap[dataSource]}/metadata/tables`,
           body,
@@ -349,7 +360,9 @@ export class IbisAdaptor implements IIbisAdaptor {
       );
       if (multipleIbisConnectionInfos) {
         const results = await Promise.all(
-          multipleIbisConnectionInfos.map(getTablesByConnectionInfo),
+          multipleIbisConnectionInfos.map((connInfo) =>
+            getTablesByConnectionInfo(connInfo, datasetIds),
+          ),
         );
         return results.flat();
       }
@@ -359,7 +372,7 @@ export class IbisAdaptor implements IIbisAdaptor {
         dataSource,
         connectionInfo,
       );
-      return await getTablesByConnectionInfo(ibisConnectionInfo);
+      return await getTablesByConnectionInfo(ibisConnectionInfo, datasetIds);
     } catch (e) {
       logger.debug(`Get tables error: ${e.response?.data || e.message}`);
       this.throwError(e, 'Error getting table from ibis server');

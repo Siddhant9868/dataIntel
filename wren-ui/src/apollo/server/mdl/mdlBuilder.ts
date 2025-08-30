@@ -438,6 +438,17 @@ export class MDLBuilder implements IMDLBuilder {
       model.properties && typeof model.properties === 'string'
         ? JSON.parse(model.properties)
         : {};
+
+    if (this.project.type === DataSourceName.BIG_QUERY) {
+      // For BigQuery, use dataset as schema if available
+      return {
+        catalog: this.project.catalog || modelProps.catalog || null,
+        schema: modelProps.dataset || this.project.schema || null,
+        table: model.sourceTableName,
+      };
+    }
+
+    // Existing logic for other data sources
     if (!modelProps.table) {
       return null;
     }

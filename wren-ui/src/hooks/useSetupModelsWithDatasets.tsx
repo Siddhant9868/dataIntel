@@ -13,6 +13,7 @@ interface SetupModelsNextData {
   selectedTables: string[];
   selectedDatasets?: string[];
   manualDatasets?: string[];
+  selections?: Array<{ datasetId: string; tableName: string }>;
 }
 
 export default function useSetupModelsWithDatasets() {
@@ -124,6 +125,7 @@ export default function useSetupModelsWithDatasets() {
               tables: data.selectedTables,
               selectedDatasets: data.selectedDatasets,
               manualDatasets: data.manualDatasets,
+              selections: data.selections,
             },
           },
         });

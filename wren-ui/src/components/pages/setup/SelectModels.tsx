@@ -41,13 +41,25 @@ interface Props {
     selectedTables: string[];
     selectedDatasets?: string[];
     manualDatasets?: string[];
+    selections?: Array<{ datasetId: string; tableName: string }>;
   }) => void;
   onBack: () => void;
   onDatasetChange?: (datasets: string[]) => void;
   submitting: boolean;
 }
 
-const columns: ColumnsType<CompactTable> = [
+const getTableColumns = (hasDatasets: boolean): ColumnsType<CompactTable> => [
+  ...(hasDatasets
+    ? [
+        {
+          title: 'Dataset',
+          dataIndex: 'dataset',
+          render: (_: any, record: CompactTable) =>
+            record.properties?.dataset || 'Unknown',
+          width: 200,
+        },
+      ]
+    : []),
   {
     title: 'Table name',
     dataIndex: 'name',
@@ -272,7 +284,7 @@ export default function SelectModels(props: Props) {
                 header={`${dataset} (${datasetTables.length} tables)`}
               >
                 <MultiSelectBox
-                  columns={columns}
+                  columns={getTableColumns(hasDatasets)}
                   items={datasetTables.map((table) => ({
                     ...table,
                     value: table.name,
@@ -288,7 +300,7 @@ export default function SelectModels(props: Props) {
       // Single dataset or no dataset grouping, show flat list
       return (
         <MultiSelectBox
-          columns={columns}
+          columns={getTableColumns(hasDatasets)}
           items={tableItems}
           loading={fetching}
         />
@@ -328,6 +340,24 @@ export default function SelectModels(props: Props) {
           return;
         }
 
+        // Create structured selections for BigQuery multi-dataset scenarios
+        const selections: Array<{ datasetId: string; tableName: string }> = [];
+
+        if (hasDatasets && values.tables?.length > 0) {
+          // For each selected table, find its dataset and create a structured selection
+          values.tables.forEach((tableName: string) => {
+            const table = tables.find((t) => t.name === tableName);
+            const tableDataset = table?.properties?.dataset;
+
+            if (tableDataset) {
+              selections.push({
+                datasetId: tableDataset,
+                tableName: tableName,
+              });
+            }
+          });
+        }
+
         onNext &&
           onNext({
             selectedTables: values.tables,
@@ -335,6 +365,7 @@ export default function SelectModels(props: Props) {
               selectedDatasets.length > 0 ? selectedDatasets : undefined,
             manualDatasets:
               manualDatasets.length > 0 ? manualDatasets : undefined,
+            selections: selections.length > 0 ? selections : undefined,
           });
       })
       .catch((error) => {
@@ -342,8 +373,9 @@ export default function SelectModels(props: Props) {
       });
   };
 
-  const hasDatasets =
-    datasets?.length || datasetDiscoveryError?.requiresManualInput;
+  const hasDatasets = Boolean(
+    datasets?.length || datasetDiscoveryError?.requiresManualInput,
+  );
   const pageTitle = hasDatasets
     ? 'Select Datasets and Tables'
     : 'Select tables to create data models';
