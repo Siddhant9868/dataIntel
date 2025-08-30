@@ -131,16 +131,50 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
       throw new Error('Dataset discovery is only supported for BigQuery');
     }
 
-    // Decrypt the connection info to get the actual credentials
-    const { credentials, projectId } =
-      connectionInfo as BIG_QUERY_CONNECTION_INFO;
-    const decryptedCredentials = encryptor.decrypt(credentials);
+    try {
+      // Decrypt the connection info to get the actual credentials
+      const { credentials, projectId } =
+        connectionInfo as BIG_QUERY_CONNECTION_INFO;
+      const decryptedCredentialsWrapper = encryptor.decrypt(credentials);
 
-    // Pass the decrypted JSON string directly - the service will parse it
-    return await this.bigQueryDatasetService.discoverDatasets(
-      projectId,
-      decryptedCredentials,
-    );
+      // Parse the decrypted wrapper and extract just the credentials
+      const parsedWrapper = JSON.parse(decryptedCredentialsWrapper);
+      const actualCredentials = parsedWrapper.credentials;
+
+      // Convert credentials to the format expected by BigQueryDatasetService
+      let credentialsForService: string;
+      if (typeof actualCredentials === 'string') {
+        // If already a string, assume it's the JSON we need
+        credentialsForService = actualCredentials;
+      } else {
+        // If it's an object, stringify it
+        credentialsForService = JSON.stringify(actualCredentials);
+      }
+
+      logger.debug('Successfully processed credentials for dataset discovery');
+
+      // The BigQueryDatasetService expects either:
+      // 1. A base64-encoded JSON string, or
+      // 2. A plain JSON string
+      // Since we have the JSON string, we can pass it directly
+      return await this.bigQueryDatasetService.discoverDatasets(
+        projectId,
+        credentialsForService,
+      );
+    } catch (error: any) {
+      logger.error(
+        'Failed to process credentials for dataset discovery:',
+        error.message,
+      );
+      return {
+        success: false,
+        error: {
+          code: 'DISCOVERY_FAILED',
+          message: `Failed to process credentials: ${error.message}`,
+          requiresManualInput: true,
+        },
+      };
+    }
   }
 
   public async listTablesFromDatasets(

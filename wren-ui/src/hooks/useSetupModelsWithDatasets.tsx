@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Path, SETUP } from '@/utils/enum';
 import { useRouter } from 'next/router';
 import {
@@ -19,6 +19,9 @@ interface SetupModelsNextData {
 export default function useSetupModelsWithDatasets() {
   const router = useRouter();
   const setupFlow = useSetupFlow();
+
+  // Track if we've already initiated dataset discovery to prevent loops
+  const datasetDiscoveryInitiated = useRef(false);
 
   // Get project information
   const { data: onboardingData } = useQuery(ONBOARDING_STATUS, {
@@ -43,18 +46,31 @@ export default function useSetupModelsWithDatasets() {
 
   const [saveTablesMutation, { loading: submitting }] = useSaveTablesMutation();
 
-  // Trigger dataset discovery for BigQuery projects
+  // Trigger dataset discovery for BigQuery projects (only once per project)
   useEffect(() => {
     const projectId = onboardingData?.onboardingStatus?.projectId;
     if (
       projectId &&
       isBigQuery &&
       !setupFlow.hasDatasets &&
-      !setupFlow.hasDatasetError
+      !setupFlow.hasDatasetError &&
+      !datasetDiscoveryInitiated.current
     ) {
+      datasetDiscoveryInitiated.current = true;
       setupFlow.handleConnectionCreated(projectId);
     }
-  }, [onboardingData, isBigQuery, setupFlow]);
+  }, [
+    onboardingData?.onboardingStatus?.projectId,
+    isBigQuery,
+    setupFlow.hasDatasets,
+    setupFlow.hasDatasetError,
+    setupFlow.handleConnectionCreated,
+  ]);
+
+  // Reset the flag when project changes
+  useEffect(() => {
+    datasetDiscoveryInitiated.current = false;
+  }, [onboardingData?.onboardingStatus?.projectId]);
 
   const submitModels = useCallback(
     async (data: SetupModelsNextData) => {

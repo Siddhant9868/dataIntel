@@ -385,11 +385,12 @@ export default function SelectModels(props: Props) {
   };
 
   const submit = () => {
-    console.log('=== SUBMIT DEBUG INFO ===');
-    console.log('All available tables:', tables);
-    console.log('Selected datasets:', selectedDatasets);
-    console.log('Manual datasets:', manualDatasets);
-    console.log('Is BigQuery:', isBigQuery);
+    console.log('=== TABLE SELECTION DEBUG ===');
+    console.log('Form selected tables:', form.getFieldValue('tables'));
+    console.log(
+      'Available table names:',
+      tables.map((t) => ({ name: t.name, dataset: t.properties?.dataset })),
+    );
 
     form
       .validateFields()
@@ -409,23 +410,10 @@ export default function SelectModels(props: Props) {
         const selections: Array<{ datasetId: string; tableName: string }> = [];
 
         if (isBigQuery && values.tables?.length > 0) {
-          console.log('Building selections for BigQuery:', {
-            tables: values.tables,
-            availableTables: tables,
-            selectedDatasets,
-            manualDatasets,
-          });
-
           // For each selected table, find its dataset and create a structured selection
           values.tables.forEach((tableName: string) => {
             const table = tables.find((t) => t.name === tableName);
             const tableDataset = table?.properties?.dataset;
-
-            console.log(`Table ${tableName}:`, {
-              table,
-              tableDataset,
-              properties: table?.properties,
-            });
 
             if (tableDataset) {
               selections.push({
@@ -436,13 +424,11 @@ export default function SelectModels(props: Props) {
               // If table doesn't have dataset property, try to infer from manual datasets
               // This is a fallback for edge cases
               if (manualDatasets.length === 1) {
-                console.log(`Using manual dataset fallback for ${tableName}`);
                 selections.push({
                   datasetId: manualDatasets[0],
                   tableName: tableName,
                 });
               } else if (selectedDatasets.length === 1) {
-                console.log(`Using selected dataset fallback for ${tableName}`);
                 selections.push({
                   datasetId: selectedDatasets[0],
                   tableName: tableName,
@@ -450,8 +436,6 @@ export default function SelectModels(props: Props) {
               }
             }
           });
-
-          console.log('Final selections:', selections);
         }
 
         // For BigQuery projects, ensure we have valid selections
