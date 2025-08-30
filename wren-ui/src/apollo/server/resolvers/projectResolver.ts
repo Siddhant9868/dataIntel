@@ -451,6 +451,22 @@ export class ProjectResolver {
   }
 
   public async listDataSourceTables(_root: any, _arg, ctx: IContext) {
+    const project = await ctx.projectService.getCurrentProject();
+
+    // For BigQuery projects without dataset_id, return empty array
+    // This indicates that dataset selection is required
+    if (
+      project.type === DataSourceName.BIG_QUERY &&
+      (!project.connectionInfo ||
+        !('dataset_id' in project.connectionInfo) ||
+        !project.connectionInfo.dataset_id)
+    ) {
+      logger.debug(
+        'BigQuery project without dataset_id, returning empty table list',
+      );
+      return [];
+    }
+
     return await ctx.projectService.getProjectDataSourceTables();
   }
 
@@ -474,6 +490,18 @@ export class ProjectResolver {
     // get current project
     const project = await ctx.projectService.getCurrentProject();
     try {
+      // Validate BigQuery projects have dataset context
+      if (
+        project.type === DataSourceName.BIG_QUERY &&
+        !arg.data.selections?.length &&
+        !arg.data.selectedDatasets?.length &&
+        !arg.data.manualDatasets?.length
+      ) {
+        throw new Error(
+          'BigQuery projects require dataset selection. Please select datasets before selecting tables.',
+        );
+      }
+
       // Collect selection context - prefer structured selections over legacy format
       let datasetContext: {
         selectedDatasets?: string[];

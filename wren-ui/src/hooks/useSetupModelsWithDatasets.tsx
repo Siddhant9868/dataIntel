@@ -7,6 +7,8 @@ import {
 } from '@/apollo/client/graphql/dataSource.generated';
 import { useQuery } from '@apollo/client';
 import { ONBOARDING_STATUS } from '@/apollo/client/graphql/onboarding';
+import { GET_SETTINGS } from '@/apollo/client/graphql/settings';
+import { DataSourceName } from '@/apollo/client/graphql/__types__';
 import { useSetupFlow } from './useSetupFlow';
 
 interface SetupModelsNextData {
@@ -24,6 +26,14 @@ export default function useSetupModelsWithDatasets() {
   const { data: onboardingData } = useQuery(ONBOARDING_STATUS, {
     fetchPolicy: 'cache-and-network',
   });
+
+  // Get project type to determine if it's BigQuery
+  const { data: settingsData } = useQuery(GET_SETTINGS, {
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const isBigQuery =
+    settingsData?.settings?.dataSource?.type === DataSourceName.BIG_QUERY;
 
   const getStoredDatasetIds = useCallback(() => {
     try {
@@ -62,7 +72,7 @@ export default function useSetupModelsWithDatasets() {
     useListDataSourceTablesQuery({
       fetchPolicy: 'no-cache',
       onError: (error) => console.error(error),
-      skip: datasetFlowActive,
+      skip: datasetFlowActive || isBigQuery,
     });
 
   const [saveTablesMutation, { loading: submitting }] = useSaveTablesMutation();
@@ -195,9 +205,15 @@ export default function useSetupModelsWithDatasets() {
   // Prefer dataset-flow tables when active
   const tables = datasetFlowActive
     ? setupFlow.tables
-    : fallbackData?.listDataSourceTables || [];
+    : isBigQuery
+      ? [] // For BigQuery, always return empty array if dataset flow not active
+      : fallbackData?.listDataSourceTables || [];
 
-  const fetching = datasetFlowActive ? setupFlow.loading : fallbackLoading;
+  const fetching = datasetFlowActive
+    ? setupFlow.loading
+    : isBigQuery
+      ? false // Not fetching for BigQuery when dataset flow not active
+      : fallbackLoading;
 
   return {
     // Setup flow data
