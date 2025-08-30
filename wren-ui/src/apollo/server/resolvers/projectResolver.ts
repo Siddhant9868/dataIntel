@@ -394,7 +394,7 @@ export class ProjectResolver {
         ...project.connectionInfo,
         ...toUpdateConnectionInfo,
       } as BIG_QUERY_CONNECTION_INFO;
-      
+
       if (!updatedConnectionInfo.datasetId) {
         logger.debug(`Skipping table fetch for BigQuery without dataset_id`);
         // Just validate connection via dataset discovery
@@ -403,12 +403,14 @@ export class ProjectResolver {
           displayName,
           connectionInfo: updatedConnectionInfo,
         } as Project;
-        
+
         try {
           await ctx.metadataService.discoverDatasets(updatedProject);
           logger.debug(`BigQuery connection validated via dataset discovery`);
         } catch (error) {
-          logger.error(`BigQuery connection validation failed: ${error.message}`);
+          logger.error(
+            `BigQuery connection validation failed: ${error.message}`,
+          );
           throw new Error(`Failed to connect to BigQuery: ${error.message}`);
         }
       } else {
@@ -996,7 +998,8 @@ export class ProjectResolver {
       );
     } else {
       // Single dataset or non-BigQuery path
-      compactTables = await ctx.projectService.getProjectDataSourceTables(project);
+      compactTables =
+        await ctx.projectService.getProjectDataSourceTables(project);
       selectedTables = compactTables.filter((table) =>
         tables.includes(table.name),
       );
@@ -1012,7 +1015,7 @@ export class ProjectResolver {
         if (table.properties?.dataset) {
           properties.dataset = table.properties.dataset;
         }
-        
+
         // Store dataset context for reference
         if (datasetContext) {
           if (datasetContext.selections?.length > 0) {
