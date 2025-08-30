@@ -91,17 +91,12 @@ export default function SelectModels(props: Props) {
     return table.properties?.dataset || 'Unknown Dataset';
   };
 
-  // Check if we have valid dataset context (either selected datasets or tables with dataset properties)
+  // Check if we have valid dataset context for BigQuery
   const hasValidDatasetContext = () => {
     if (!isBigQuery) return true;
 
-    // Check if datasets are explicitly selected
-    if (selectedDatasets.length > 0 || manualDatasets.length > 0) return true;
-
-    // Check if tables have dataset properties (from previous selection)
-    if (tables.some((t) => t.properties?.dataset)) return true;
-
-    return false;
+    // For BigQuery, we need tables with dataset properties
+    return tables.some((t) => t.properties?.dataset);
   };
 
   // Initialize form values when selectedDatasets prop changes
@@ -113,8 +108,19 @@ export default function SelectModels(props: Props) {
 
   // Auto-discovery successful - show dataset selection
   const renderDatasetSelection = () => {
-    // Always show for BigQuery projects, even if no datasets discovered yet
-    if (!datasets?.length && !isBigQuery) return null;
+    // Only show discovery message when actually discovering or when manual input is required
+    if (!datasets?.length && datasetDiscoveryError?.requiresManualInput) {
+      return (
+        <div className="mb-6">
+          <Alert
+            message="Dataset Discovery Required"
+            description="Please wait while we discover available datasets, or manually enter dataset IDs below."
+            type="info"
+            showIcon
+          />
+        </div>
+      );
+    }
 
     // If we have datasets, show the selection
     if (datasets?.length) {
@@ -154,27 +160,34 @@ export default function SelectModels(props: Props) {
       );
     }
 
-    // For BigQuery without discovered datasets, show a message
-    if (isBigQuery) {
-      return (
-        <div className="mb-6">
-          <Alert
-            message="Dataset Discovery Required"
-            description="Please wait while we discover available datasets, or manually enter dataset IDs below."
-            type="info"
-            showIcon
-          />
-        </div>
-      );
-    }
-
     return null;
   };
 
   // Manual dataset input when auto-discovery fails
   const renderManualDatasetInput = () => {
-    // Always show for BigQuery projects, even if no error
-    if (!datasetDiscoveryError?.requiresManualInput && !isBigQuery) return null;
+    // Only show when manual input is explicitly required
+    if (!datasetDiscoveryError?.requiresManualInput) return null;
+
+    const handleLoadTables = () => {
+      const value = form.getFieldValue('manualDatasets') || '';
+      const datasetIds = value
+        .split(',')
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
+
+      if (datasetIds.length === 0) {
+        form.setFields([
+          {
+            name: 'manualDatasets',
+            errors: ['Please enter at least one dataset ID'],
+          },
+        ]);
+        return;
+      }
+
+      setManualDatasets(datasetIds);
+      onDatasetChange && onDatasetChange(datasetIds);
+    };
 
     return (
       <div className="mb-6">
@@ -190,7 +203,7 @@ export default function SelectModels(props: Props) {
           label="Dataset IDs"
           rules={[
             {
-              required: true,
+              required: selectedDatasets.length === 0,
               message: 'Please enter at least one dataset ID',
             },
           ]}
@@ -198,21 +211,16 @@ export default function SelectModels(props: Props) {
           <Input.TextArea
             placeholder="Enter dataset IDs separated by commas (e.g., dataset1, dataset2)"
             rows={3}
-            onChange={(e) => {
-              const value = e.target.value;
-              const datasetIds = value
-                .split(',')
-                .map((id) => id.trim())
-                .filter((id) => id.length > 0);
-              setManualDatasets(datasetIds);
-
-              // Trigger table fetch when datasets are entered
-              if (datasetIds.length > 0 && onDatasetChange) {
-                onDatasetChange(datasetIds);
-              }
-            }}
           />
         </Form.Item>
+        <Button
+          onClick={handleLoadTables}
+          loading={fetching}
+          type="primary"
+          className="mb-4"
+        >
+          Load Tables
+        </Button>
       </div>
     );
   };
@@ -221,6 +229,11 @@ export default function SelectModels(props: Props) {
   const renderTablesByDataset = () => {
     // Add error display for dataset selection failures
     if (datasetDiscoveryError && !datasetDiscoveryError.requiresManualInput) {
+      const isCredentialError =
+        datasetDiscoveryError.message.includes('credential') ||
+        datasetDiscoveryError.message.includes('Invalid') ||
+        datasetDiscoveryError.code === 'INVALID_CREDENTIALS';
+
       return (
         <div className="text-center py-8">
           <Alert
@@ -229,9 +242,21 @@ export default function SelectModels(props: Props) {
             type="error"
             showIcon
             action={
-              <Button size="small" onClick={() => window.location.reload()}>
-                Retry
-              </Button>
+              <div>
+                {isCredentialError && (
+                  <Button
+                    size="small"
+                    type="primary"
+                    onClick={() => (window.location.href = '/setup/connection')}
+                    className="mr-2"
+                  >
+                    Back to Connection
+                  </Button>
+                )}
+                <Button size="small" onClick={() => window.location.reload()}>
+                  Retry
+                </Button>
+              </div>
             }
             className="mb-4"
           />
@@ -474,17 +499,6 @@ export default function SelectModels(props: Props) {
           >
             {renderTablesByDataset()}
           </Form.Item>
-
-          {/* Show message when BigQuery requires dataset selection first */}
-          {isBigQuery && !hasValidDatasetContext() && (
-            <Alert
-              message="Dataset Selection Required"
-              description="Please select or enter datasets above before selecting tables."
-              type="info"
-              showIcon
-              className="mb-4"
-            />
-          )}
         </Form>
       </div>
 

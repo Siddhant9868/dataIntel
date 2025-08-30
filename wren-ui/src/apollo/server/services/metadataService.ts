@@ -132,15 +132,16 @@ export class DataSourceMetadataService implements IDataSourceMetadataService {
     }
 
     // Decrypt the connection info to get the actual credentials
-    const { credentials } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    const { credentials, projectId } =
+      connectionInfo as BIG_QUERY_CONNECTION_INFO;
     const decryptedCredentials = encryptor.decrypt(credentials);
-    const parsedCredentials = JSON.parse(decryptedCredentials).credentials;
 
-    const { projectId } = connectionInfo as BIG_QUERY_CONNECTION_INFO;
+    // The decrypted value is the JSON string of the credentials
+    const credentialsJson = JSON.parse(decryptedCredentials);
 
     return await this.bigQueryDatasetService.discoverDatasets(
       projectId,
-      parsedCredentials,
+      JSON.stringify(credentialsJson),
     );
   }
 

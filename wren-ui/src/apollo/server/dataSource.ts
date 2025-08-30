@@ -105,9 +105,19 @@ const dataSource = {
       );
       const { projectId, datasetId, credentials } =
         decryptedConnectionInfo as BIG_QUERY_CONNECTION_INFO;
-      const base64Credentials = Buffer.from(
-        JSON.stringify(credentials),
-      ).toString('base64');
+
+      // Check if credentials is already a string (base64) or needs encoding
+      let base64Credentials: string;
+      if (typeof credentials === 'string') {
+        // Already encoded
+        base64Credentials = credentials;
+      } else {
+        // JSON object, needs encoding
+        base64Credentials = Buffer.from(JSON.stringify(credentials)).toString(
+          'base64',
+        );
+      }
+
       const res: IbisBigQueryConnectionInfo = {
         project_id: projectId,
         credentials: base64Credentials,
