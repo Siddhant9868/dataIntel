@@ -15,6 +15,8 @@ export default function SetupModels() {
     onBack,
     onDatasetChange,
     submitting,
+    isBigQuery,
+    selectedDatasets,
   } = useSetupModelsWithDatasets();
 
   const current = useMemo(() => SETUP_STEPS[stepKey], [stepKey]);
@@ -31,6 +33,8 @@ export default function SetupModels() {
           datasets={datasets}
           datasetDiscoveryError={datasetDiscoveryError}
           onDatasetChange={onDatasetChange}
+          isBigQuery={isBigQuery}
+          selectedDatasets={selectedDatasets}
         />
       </ContainerCard>
     </SimpleLayout>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Button,
   Col,
@@ -46,6 +46,8 @@ interface Props {
   onBack: () => void;
   onDatasetChange?: (datasets: string[]) => void;
   submitting: boolean;
+  isBigQuery?: boolean;
+  selectedDatasets?: string[];
 }
 
 const getTableColumns = (hasDatasets: boolean): ColumnsType<CompactTable> => [
@@ -76,67 +78,111 @@ export default function SelectModels(props: Props) {
     onNext,
     onDatasetChange,
     submitting,
+    isBigQuery,
+    selectedDatasets: propsSelectedDatasets,
   } = props;
 
   const [form] = Form.useForm();
   const [manualDatasets, setManualDatasets] = useState<string[]>([]);
-  const [selectedDatasets, setSelectedDatasets] = useState<string[]>([]);
+  const [selectedDatasets, setSelectedDatasets] = useState<string[]>(
+    propsSelectedDatasets || [],
+  );
 
   // Helper function to extract dataset from table metadata
   const extractDatasetFromTable = (table: CompactTable): string => {
     return table.properties?.dataset || 'Unknown Dataset';
   };
 
+  // Check if we have valid dataset context (either selected datasets or tables with dataset properties)
+  const hasValidDatasetContext = () => {
+    if (!isBigQuery) return true;
+
+    // Check if datasets are explicitly selected
+    if (selectedDatasets.length > 0 || manualDatasets.length > 0) return true;
+
+    // Check if tables have dataset properties (from previous selection)
+    if (tables.some((t) => t.properties?.dataset)) return true;
+
+    return false;
+  };
+
+  // Initialize form values when selectedDatasets prop changes
+  useEffect(() => {
+    if (propsSelectedDatasets?.length > 0) {
+      form.setFieldsValue({ datasets: propsSelectedDatasets });
+    }
+  }, [propsSelectedDatasets, form]);
+
   // Auto-discovery successful - show dataset selection
   const renderDatasetSelection = () => {
-    if (!datasets?.length) return null;
+    // Always show for BigQuery projects, even if no datasets discovered yet
+    if (!datasets?.length && !isBigQuery) return null;
 
-    const datasetItems = datasets.map((ds) => ({
-      ...ds,
-      value: ds.id,
-      name: ds.friendlyName || ds.id,
-    }));
+    // If we have datasets, show the selection
+    if (datasets?.length) {
+      const datasetItems = datasets.map((ds) => ({
+        ...ds,
+        value: ds.id,
+        name: ds.friendlyName || ds.id,
+      }));
 
-    return (
-      <Form.Item
-        name="datasets"
-        label="Select Datasets"
-        rules={[
-          {
-            required: true,
-            message: 'Please select at least one dataset',
-          },
-        ]}
-      >
-        <MultiSelectBox
-          columns={[
-            { title: 'Dataset ID', dataIndex: 'id' },
-            { title: 'Name', dataIndex: 'friendlyName' },
-            { title: 'Description', dataIndex: 'description' },
+      return (
+        <Form.Item
+          name="datasets"
+          label="Select Datasets"
+          rules={[
+            {
+              required: true,
+              message: 'Please select at least one dataset',
+            },
           ]}
-          items={datasetItems}
-          loading={fetching}
-          onChange={(values) => {
-            setSelectedDatasets(values);
-            onDatasetChange && onDatasetChange(values);
-          }}
-        />
-      </Form.Item>
-    );
+        >
+          <MultiSelectBox
+            columns={[
+              { title: 'Dataset ID', dataIndex: 'id' },
+              { title: 'Name', dataIndex: 'friendlyName' },
+              { title: 'Description', dataIndex: 'description' },
+            ]}
+            items={datasetItems}
+            loading={fetching}
+            value={selectedDatasets}
+            onChange={(values) => {
+              setSelectedDatasets(values);
+              form.setFieldsValue({ datasets: values });
+              onDatasetChange && onDatasetChange(values);
+            }}
+          />
+        </Form.Item>
+      );
+    }
+
+    // For BigQuery without discovered datasets, show a message
+    if (isBigQuery) {
+      return (
+        <div className="mb-6">
+          <Alert
+            message="Dataset Discovery Required"
+            description="Please wait while we discover available datasets, or manually enter dataset IDs below."
+            type="info"
+            showIcon
+          />
+        </div>
+      );
+    }
+
+    return null;
   };
 
   // Manual dataset input when auto-discovery fails
   const renderManualDatasetInput = () => {
-    if (!datasetDiscoveryError?.requiresManualInput) return null;
+    // Always show for BigQuery projects, even if no error
+    if (!datasetDiscoveryError?.requiresManualInput && !isBigQuery) return null;
 
     return (
       <div className="mb-6">
         <Alert
-          message="Dataset Discovery Failed"
-          description={
-            datasetDiscoveryError.message +
-            '. Please specify dataset IDs manually.'
-          }
+          message="Manual Dataset Input"
+          description="Please enter the dataset IDs you want to use. You can find these in your BigQuery console."
           type="warning"
           showIcon
           className="mb-4"
@@ -149,33 +195,18 @@ export default function SelectModels(props: Props) {
               required: true,
               message: 'Please enter at least one dataset ID',
             },
-            {
-              validator: (_, value) => {
-                if (!value) return Promise.resolve();
-                const datasets = value
-                  .split(',')
-                  .map((ds) => ds.trim())
-                  .filter(Boolean);
-                if (datasets.length === 0) {
-                  return Promise.reject(
-                    new Error('Please enter at least one dataset ID'),
-                  );
-                }
-                return Promise.resolve();
-              },
-            },
           ]}
-          help="Enter dataset IDs separated by commas (e.g., dataset1, dataset2)"
         >
           <Input.TextArea
-            placeholder="dataset1, dataset2, dataset3"
+            placeholder="Enter dataset IDs separated by commas (e.g., dataset1, dataset2)"
+            rows={3}
             onChange={(e) => {
-              const datasets = e.target.value
+              const value = e.target.value;
+              const datasetIds = value
                 .split(',')
-                .map((ds) => ds.trim())
-                .filter(Boolean);
-              setManualDatasets(datasets);
-              onDatasetChange && onDatasetChange(datasets);
+                .map((id) => id.trim())
+                .filter((id) => id.length > 0);
+              setManualDatasets(datasetIds);
             }}
           />
         </Form.Item>
@@ -329,21 +360,45 @@ export default function SelectModels(props: Props) {
     form
       .validateFields()
       .then((values) => {
+        console.log('SelectModels submit:', {
+          selectedDatasets,
+          manualDatasets,
+          tables: tables.length,
+          selectedTables: values.tables,
+          isBigQuery,
+          hasDatasets,
+          tableSample: tables.slice(0, 3).map((t) => ({
+            name: t.name,
+            properties: t.properties,
+          })),
+        });
+
         // For BigQuery projects, ensure datasets are selected if available
-        if (hasDatasets && !selectedDatasets.length && !manualDatasets.length) {
-          form.setFields([
-            {
-              name: 'datasets',
-              errors: ['Please select at least one dataset'],
-            },
-          ]);
-          return;
+        if (isBigQuery && !selectedDatasets.length && !manualDatasets.length) {
+          // Check if we can build selections from table properties
+          let canBuildSelections = false;
+          if (values.tables?.length > 0) {
+            canBuildSelections = values.tables.some((tableName: string) => {
+              const table = tables.find((t) => t.name === tableName);
+              return table?.properties?.dataset;
+            });
+          }
+
+          if (!canBuildSelections) {
+            form.setFields([
+              {
+                name: 'datasets',
+                errors: ['Please select at least one dataset'],
+              },
+            ]);
+            return;
+          }
         }
 
         // Create structured selections for BigQuery multi-dataset scenarios
         const selections: Array<{ datasetId: string; tableName: string }> = [];
 
-        if (hasDatasets && values.tables?.length > 0) {
+        if (isBigQuery && values.tables?.length > 0) {
           // For each selected table, find its dataset and create a structured selection
           values.tables.forEach((tableName: string) => {
             const table = tables.find((t) => t.name === tableName);
@@ -357,6 +412,15 @@ export default function SelectModels(props: Props) {
             }
           });
         }
+
+        console.log('Calling onNext with:', {
+          selectedTables: values.tables,
+          selectedDatasets:
+            selectedDatasets.length > 0 ? selectedDatasets : undefined,
+          manualDatasets:
+            manualDatasets.length > 0 ? manualDatasets : undefined,
+          selections: selections.length > 0 ? selections : undefined,
+        });
 
         onNext &&
           onNext({
@@ -374,7 +438,9 @@ export default function SelectModels(props: Props) {
   };
 
   const hasDatasets = Boolean(
-    datasets?.length || datasetDiscoveryError?.requiresManualInput,
+    datasets?.length ||
+      datasetDiscoveryError?.requiresManualInput ||
+      isBigQuery,
   );
   const pageTitle = hasDatasets
     ? 'Select Datasets and Tables'
@@ -420,6 +486,17 @@ export default function SelectModels(props: Props) {
           >
             {renderTablesByDataset()}
           </Form.Item>
+
+          {/* Show message when BigQuery requires dataset selection first */}
+          {isBigQuery && !hasValidDatasetContext() && (
+            <Alert
+              message="Dataset Selection Required"
+              description="Please select or enter datasets above before selecting tables."
+              type="info"
+              showIcon
+              className="mb-4"
+            />
+          )}
         </Form>
       </div>
 
@@ -441,12 +518,7 @@ export default function SelectModels(props: Props) {
             onClick={submit}
             className="adm-onboarding-btn"
             loading={submitting}
-            disabled={
-              submitting ||
-              (hasDatasets &&
-                !selectedDatasets.length &&
-                !manualDatasets.length)
-            }
+            disabled={submitting || (isBigQuery && !hasValidDatasetContext())}
           >
             Next
           </Button>

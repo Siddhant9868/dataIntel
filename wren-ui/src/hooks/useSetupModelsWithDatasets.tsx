@@ -235,5 +235,8 @@ export default function useSetupModelsWithDatasets() {
     // State helpers - include stored datasets in hasDatasets calculation
     hasDatasets: setupFlow.hasDatasets || !!getStoredDatasetIds(),
     requiresManualInput: setupFlow.requiresManualInput,
+
+    // Project type information
+    isBigQuery,
   };
 }
